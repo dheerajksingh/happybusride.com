@@ -1,12 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { addDays, startOfDay } from "date-fns";
 
-const adapter = new PrismaPg({
-  connectionString: "postgresql://dheerajsingh@localhost:5432/happybusride",
-});
-const prisma = new PrismaClient({ adapter } as any);
+const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Seeding database...");
