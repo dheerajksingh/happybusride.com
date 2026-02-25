@@ -6,7 +6,6 @@ export const authConfig = {
   pages: {
     signIn: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
   session: { strategy: "jwt" as const },
   callbacks: {
     async jwt({ token, user }: any) {
