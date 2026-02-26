@@ -55,6 +55,7 @@ export default async function SchedulesPage() {
                 <th className="px-4 py-3">Arrival</th>
                 <th className="px-4 py-3">Base Fare</th>
                 <th className="px-4 py-3">Trips</th>
+                <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -70,6 +71,14 @@ export default async function SchedulesPage() {
                   <td className="px-4 py-3 text-gray-600">{fmt(s.arrivalTime)}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">₹{Number(s.baseFare)}</td>
                   <td className="px-4 py-3 text-gray-600">{s._count.trips}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/operator/schedules/${s.id}`}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Edit
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

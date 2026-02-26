@@ -57,6 +57,9 @@ export default async function BusesPage() {
                 <Link href={`/operator/buses/${bus.id}/layout`} className="flex-1 rounded-lg border border-blue-200 py-1.5 text-center text-xs font-medium text-blue-600 hover:bg-blue-50">
                   Seat Layout
                 </Link>
+                <Link href={`/operator/buses/${bus.id}/maintenance`} className="flex-1 rounded-lg border border-orange-200 py-1.5 text-center text-xs font-medium text-orange-600 hover:bg-orange-50">
+                  Maintenance
+                </Link>
               </div>
             </div>
           ))}

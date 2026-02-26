@@ -96,6 +96,13 @@ enum CancellationPolicy {
   STRICT
 }
 
+enum MaintenanceType {
+  SERVICE
+  INSPECTION
+  REPAIR
+  CLEANING
+}
+
 // ============================================================
 // USER
 // ============================================================
@@ -287,10 +294,31 @@ model Bus {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  seats     Seat[]
-  schedules Schedule[]
+  seats            Seat[]
+  schedules        Schedule[]
+  maintenanceLogs  MaintenanceLog[]
 
   @@map("buses")
+}
+
+// ============================================================
+// MAINTENANCE LOG
+// ============================================================
+
+model MaintenanceLog {
+  id             String          @id @default(cuid())
+  busId          String
+  bus            Bus             @relation(fields: [busId], references: [id], onDelete: Cascade)
+  date           DateTime        @db.Date
+  type           MaintenanceType
+  description    String
+  mileage        Int?
+  cost           Decimal?        @db.Decimal(10, 2)
+  nextServiceDue DateTime?       @db.Date
+  createdAt      DateTime        @default(now())
+
+  @@index([busId])
+  @@map("maintenance_logs")
 }
 
 // ============================================================
@@ -368,6 +396,9 @@ model RouteStop {
   arrivalOffset   Int?
   departureOffset Int?
 
+  fareRulesFrom FareRule[] @relation("FareRuleFromStop")
+  fareRulesTo   FareRule[] @relation("FareRuleToStop")
+
   @@unique([routeId, stopOrder])
   @@map("route_stops")
 }
@@ -385,6 +416,7 @@ model Schedule {
   departureTime DateTime
   arrivalTime   DateTime
   recurrence    String?
+  daysOfWeek    Int[]    @default([])
   baseFare      Decimal  @db.Decimal(10, 2)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -401,14 +433,18 @@ model Schedule {
 // ============================================================
 
 model FareRule {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   scheduleId String
-  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+  schedule   Schedule   @relation(fields: [scheduleId], references: [id])
   seatType   SeatType
-  price      Decimal  @db.Decimal(10, 2)
-  isActive   Boolean  @default(true)
+  price      Decimal    @db.Decimal(10, 2)
+  isActive   Boolean    @default(true)
+  fromStopId String?
+  toStopId   String?
+  fromStop   RouteStop? @relation("FareRuleFromStop", fields: [fromStopId], references: [id])
+  toStop     RouteStop? @relation("FareRuleToStop", fields: [toStopId], references: [id])
 
-  @@unique([scheduleId, seatType])
+  @@unique([scheduleId, seatType, fromStopId, toStopId])
   @@map("fare_rules")
 }
 

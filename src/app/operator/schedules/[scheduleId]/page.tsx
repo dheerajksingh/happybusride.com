@@ -1,30 +1,61 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Suspense } from "react";
+import { PageSpinner } from "@/components/ui/Spinner";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function NewScheduleForm() {
+export default function EditSchedulePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const defaultRouteId = searchParams.get("routeId") ?? "";
+  const { scheduleId } = useParams<{ scheduleId: string }>();
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [routes, setRoutes] = useState<any[]>([]);
   const [buses, setBuses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [form, setForm] = useState({
-    routeId: defaultRouteId,
+    routeId: "",
     busId: "",
-    departureTime: "2024-01-01T21:00",
-    arrivalTime: "2024-01-02T07:00",
+    departureTime: "",
+    arrivalTime: "",
     baseFare: "",
+    isActive: true,
   });
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
+  const [regenerateTrips, setRegenerateTrips] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/operator/schedules/${scheduleId}`).then((r) => r.json()),
+      fetch("/api/operator/routes").then((r) => r.json()),
+      fetch("/api/operator/buses").then((r) => r.json()),
+    ]).then(([s, r, b]) => {
+      if (s && !s.error) {
+        const dep = new Date(s.departureTime);
+        const arr = new Date(s.arrivalTime);
+        const toLocal = (d: Date) => {
+          const pad = (n: number) => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        setForm({
+          routeId: s.routeId,
+          busId: s.busId,
+          departureTime: toLocal(dep),
+          arrivalTime: toLocal(arr),
+          baseFare: String(Number(s.baseFare)),
+          isActive: s.isActive,
+        });
+        setDaysOfWeek(s.daysOfWeek ?? []);
+      }
+      setRoutes(Array.isArray(r) ? r : []);
+      setBuses(Array.isArray(b) ? b : []);
+      setLoading(false);
+    });
+  }, [scheduleId]);
 
   function toggleDay(day: number) {
     setDaysOfWeek((prev) =>
@@ -32,43 +63,34 @@ function NewScheduleForm() {
     );
   }
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/operator/routes").then((r) => r.json()),
-      fetch("/api/operator/buses").then((r) => r.json()),
-    ]).then(([r, b]) => {
-      setRoutes(Array.isArray(r) ? r : []);
-      setBuses(Array.isArray(b) ? b : []);
-    });
-  }, []);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.routeId || !form.busId || !form.baseFare) {
-      alert("Fill all required fields");
-      return;
-    }
-    setLoading(true);
-    const res = await fetch("/api/operator/schedules", {
-      method: "POST",
+    setSaving(true);
+    const res = await fetch(`/api/operator/schedules/${scheduleId}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         baseFare: Number(form.baseFare),
         daysOfWeek,
+        regenerateTrips,
       }),
     });
-    setLoading(false);
+    setSaving(false);
     if (res.ok) router.push("/operator/schedules");
-    else alert("Failed to create schedule");
+    else alert("Failed to update schedule");
   }
+
+  if (loading) return <PageSpinner />;
 
   return (
     <div className="max-w-lg">
       <div className="mb-4">
-        <Link href="/operator/schedules" className="text-sm text-blue-600 hover:underline">← Schedules</Link>
+        <Link href="/operator/schedules" className="text-sm text-blue-600 hover:underline">
+          ← Schedules
+        </Link>
       </div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">New Schedule</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900">Edit Schedule</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
         <div>
@@ -97,7 +119,7 @@ function NewScheduleForm() {
             required
           >
             <option value="">Select bus</option>
-            {buses.filter((b: any) => b.isActive).map((b: any) => (
+            {buses.map((b: any) => (
               <option key={b.id} value={b.id}>
                 {b.name} ({b.registrationNo})
               </option>
@@ -161,22 +183,38 @@ function NewScheduleForm() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-400">
-          Trips will be auto-generated for the next 30 days once you create this schedule.
-        </p>
+        <div className="flex items-center gap-2">
+          <input
+            id="isActive"
+            type="checkbox"
+            checked={form.isActive}
+            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600"
+          />
+          <label htmlFor="isActive" className="text-sm text-gray-700">Active</label>
+        </div>
 
-        <Button type="submit" variant="primary" loading={loading} className="w-full">
-          Create Schedule
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={regenerateTrips}
+              onChange={(e) => setRegenerateTrips(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-yellow-500"
+            />
+            <div>
+              <span className="text-sm font-medium text-yellow-800">Regenerate future trips</span>
+              <p className="text-xs text-yellow-700 mt-0.5">
+                Deletes upcoming SCHEDULED trips with no bookings and recreates them based on the updated days of week.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <Button type="submit" variant="primary" loading={saving} className="w-full">
+          Save Changes
         </Button>
       </form>
     </div>
-  );
-}
-
-export default function NewSchedulePage() {
-  return (
-    <Suspense>
-      <NewScheduleForm />
-    </Suspense>
   );
 }

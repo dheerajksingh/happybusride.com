@@ -23,6 +23,10 @@ export default function TripsPage() {
   const [selectedDriver, setSelectedDriver] = useState("");
   const [assigning, setAssigning] = useState(false);
 
+  function loadTrips() {
+    return fetch("/api/operator/trips").then((r) => r.json()).then((t) => setTrips(Array.isArray(t) ? t : []));
+  }
+
   useEffect(() => {
     Promise.all([
       fetch("/api/operator/trips").then((r) => r.json()),
@@ -32,6 +36,9 @@ export default function TripsPage() {
       setDrivers(Array.isArray(d) ? d : []);
       setLoading(false);
     });
+
+    const timer = setInterval(loadTrips, 60_000);
+    return () => clearInterval(timer);
   }, []);
 
   async function handleAssign() {
@@ -44,8 +51,7 @@ export default function TripsPage() {
     });
     setAssigning(false);
     setAssignModal(null);
-    // Refresh
-    fetch("/api/operator/trips").then((r) => r.json()).then((t) => setTrips(Array.isArray(t) ? t : []));
+    loadTrips();
   }
 
   if (loading) return <PageSpinner />;
@@ -62,7 +68,7 @@ export default function TripsPage() {
               <th className="px-4 py-3">Route</th>
               <th className="px-4 py-3">Bus</th>
               <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Bookings</th>
+              <th className="px-4 py-3">Occupancy</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Action</th>
             </tr>
@@ -83,7 +89,25 @@ export default function TripsPage() {
                 <td className="px-4 py-3 text-gray-600">
                   {trip.driver?.user?.name ?? <span className="text-orange-500 text-xs">Unassigned</span>}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{trip._count?.bookings}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          trip.occupancyRate >= 90
+                            ? "bg-red-500"
+                            : trip.occupancyRate >= 60
+                            ? "bg-yellow-400"
+                            : "bg-green-500"
+                        }`}
+                        style={{ width: `${Math.min(trip.occupancyRate, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {trip.bookedSeats}/{trip.totalSeats}
+                    </span>
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant={statusVariant[trip.status] ?? "default"}>
                     {trip.status.replace("_", " ")}

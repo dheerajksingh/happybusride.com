@@ -58,6 +58,12 @@ export default async function RoutesPage() {
               </div>
               <div className="flex gap-2">
                 <Link
+                  href={`/operator/routes/${route.id}`}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Edit
+                </Link>
+                <Link
                   href={`/operator/schedules/new?routeId=${route.id}`}
                   className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
                 >

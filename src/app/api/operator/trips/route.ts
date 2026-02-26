@@ -19,7 +19,7 @@ export async function GET(req: Request) {
       schedule: {
         include: {
           route: { include: { fromCity: true, toCity: true } },
-          bus: { select: { name: true } },
+          bus: { select: { name: true, totalSeats: true } },
         },
       },
       driver: { include: { user: { select: { name: true } } } },
@@ -30,5 +30,25 @@ export async function GET(req: Request) {
     take: limit,
   });
 
-  return NextResponse.json(trips);
+  const tripIds = trips.map((t) => t.id);
+  const bookedCounts = await prisma.bookingsSeat.groupBy({
+    by: ["tripId"],
+    where: { tripId: { in: tripIds } },
+    _count: { seatId: true },
+  });
+  const bookedByTrip: Record<string, number> = Object.fromEntries(
+    bookedCounts.map((b) => [b.tripId, b._count.seatId])
+  );
+
+  const tripsWithOccupancy = trips.map((trip) => ({
+    ...trip,
+    bookedSeats: bookedByTrip[trip.id] ?? 0,
+    totalSeats: trip.schedule.bus.totalSeats ?? 0,
+    occupancyRate:
+      trip.schedule.bus.totalSeats
+        ? Math.round(((bookedByTrip[trip.id] ?? 0) / trip.schedule.bus.totalSeats) * 100)
+        : 0,
+  }));
+
+  return NextResponse.json(tripsWithOccupancy);
 }
