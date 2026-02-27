@@ -103,6 +103,16 @@ export default function DriverTripPage({ params }: { params: Promise<{ tripId: s
           </Button>
         )}
       </div>
+      {(trip.status === "BOARDING" || trip.status === "IN_PROGRESS") && (
+        <div className="mb-4">
+          <Link
+            href={`/driver/scan?tripId=${tripId}`}
+            className="block w-full rounded-lg border border-blue-500 py-3 text-center text-sm font-semibold text-blue-400 hover:bg-blue-900/20 transition-colors"
+          >
+            🎫 Verify Passenger PNR
+          </Link>
+        </div>
+      )}
 
       {/* Passenger List */}
       <div className="rounded-xl bg-gray-800 p-4">
