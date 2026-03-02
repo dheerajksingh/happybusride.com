@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { PageSpinner } from "@/components/ui/Spinner";
 
 interface ScanResult {
   valid: boolean;
@@ -16,7 +17,7 @@ interface ScanResult {
   passengers?: Array<{ name: string; age: number; gender: string }>;
 }
 
-export default function DriverScanPage() {
+function DriverScanContent() {
   const searchParams = useSearchParams();
   const tripId = searchParams.get("tripId") ?? "";
 
@@ -132,5 +133,13 @@ export default function DriverScanPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DriverScanPage() {
+  return (
+    <Suspense fallback={<PageSpinner />}>
+      <DriverScanContent />
+    </Suspense>
   );
 }
