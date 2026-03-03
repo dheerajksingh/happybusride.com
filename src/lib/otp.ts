@@ -6,7 +6,7 @@ const MAX_ATTEMPTS = 5;
 
 export function generateOTP(): string {
   // In dev, use fixed code for easy testing
-  if (process.env.NODE_ENV === "development" && process.env.OTP_DEV_CODE) {
+  if (process.env.OTP_DEV_CODE) {
     return process.env.OTP_DEV_CODE;
   }
   return Math.floor(100000 + Math.random() * 900000).toString();
