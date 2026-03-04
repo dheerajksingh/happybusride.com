@@ -1,25 +1,29 @@
-import NextAuth from "next-auth";
-import { authConfig } from "@/auth.config";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const session = req.auth;
-  const role = session?.user?.role;
-  const operatorStatus = session?.user?.operatorStatus;
+
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+    cookieName: process.env.NODE_ENV === "production"
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token",
+  });
+
+  const role = token?.role as string | undefined;
+  const operatorStatus = token?.operatorStatus as string | undefined;
 
   // Operator routes
   if (pathname.startsWith("/operator") || pathname.startsWith("/api/operator")) {
-    if (!session) {
+    if (!token) {
       return NextResponse.redirect(new URL("/operator-login", req.url));
     }
     if (role !== "OPERATOR") {
-      const debugUrl = `/operator-login?debug_role=${encodeURIComponent(role ?? "null")}&debug_session=${session ? "yes" : "no"}`;
-      return NextResponse.redirect(new URL(debugUrl, req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
-    // Redirect to onboarding if not approved (except onboarding routes)
     if (
       operatorStatus !== "APPROVED" &&
       !pathname.startsWith("/operator/onboarding") &&
@@ -31,7 +35,7 @@ export default auth((req) => {
 
   // Driver routes
   if (pathname.startsWith("/driver") || pathname.startsWith("/api/driver")) {
-    if (!session) {
+    if (!token) {
       return NextResponse.redirect(new URL("/operator-login", req.url));
     }
     if (role !== "DRIVER") {
@@ -41,7 +45,7 @@ export default auth((req) => {
 
   // Admin routes
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    if (!session) {
+    if (!token) {
       return NextResponse.redirect(new URL("/operator-login", req.url));
     }
     if (role !== "ADMIN") {
@@ -51,13 +55,13 @@ export default auth((req) => {
 
   // Passenger protected routes
   if (pathname.startsWith("/my-trips") || pathname.startsWith("/booking")) {
-    if (!session) {
+    if (!token) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
