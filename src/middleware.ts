@@ -16,7 +16,8 @@ export default auth((req) => {
       return NextResponse.redirect(new URL("/operator-login", req.url));
     }
     if (role !== "OPERATOR") {
-      return NextResponse.redirect(new URL("/", req.url));
+      const debugUrl = `/operator-login?debug_role=${encodeURIComponent(role ?? "null")}&debug_session=${session ? "yes" : "no"}`;
+      return NextResponse.redirect(new URL(debugUrl, req.url));
     }
     // Redirect to onboarding if not approved (except onboarding routes)
     if (
