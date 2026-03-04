@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
 export default function OperatorLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,13 +35,12 @@ export default function OperatorLoginPage() {
     const session = await sessionRes.json();
 
     if (session?.user?.role === "ADMIN") {
-      router.push("/admin");
+      window.location.href = "/admin";
     } else if (session?.user?.role === "DRIVER") {
-      router.push("/driver");
+      window.location.href = "/driver";
     } else {
-      router.push("/operator");
+      window.location.href = "/operator";
     }
-    router.refresh();
   }
 
   return (
