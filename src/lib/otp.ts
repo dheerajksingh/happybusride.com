@@ -66,7 +66,10 @@ export async function verifyOTP(
     return { valid: false };
   }
 
-  const valid = await compare(code, latestOtp.code);
+  // If dev code is set, accept it directly without bcrypt comparison
+  const valid = process.env.OTP_DEV_CODE && code === process.env.OTP_DEV_CODE
+    ? true
+    : await compare(code, latestOtp.code);
 
   if (!valid) {
     await prisma.otpRequest.update({
