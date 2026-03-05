@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { getMobileSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const session = await auth();
+export async function GET(req: Request) {
+  const session = (await auth()) ?? (await getMobileSession(req));
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await prisma.user.findUnique({
@@ -41,7 +42,7 @@ const updateSchema = z.object({
 });
 
 export async function PUT(req: Request) {
-  const session = await auth();
+  const session = (await auth()) ?? (await getMobileSession(req));
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();

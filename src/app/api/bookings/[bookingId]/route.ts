@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getMobileSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = (await auth()) ?? (await getMobileSession(req));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { bookingId } = await params;

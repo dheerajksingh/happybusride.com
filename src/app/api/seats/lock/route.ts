@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { getMobileSession } from "@/lib/mobile-auth";
 import { lockSeats, releaseSeats } from "@/lib/seat-lock";
 
 const lockSchema = z.object({
@@ -10,7 +11,7 @@ const lockSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const session = (await auth()) ?? (await getMobileSession(req));
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const session = await auth();
+    const session = (await auth()) ?? (await getMobileSession(req));
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

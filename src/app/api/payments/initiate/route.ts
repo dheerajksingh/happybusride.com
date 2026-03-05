@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { getMobileSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/prisma";
 import { calculateFare, calculateCommission } from "@/lib/fare";
 import { initiatePayment } from "@/lib/payment";
@@ -20,7 +21,7 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const session = (await auth()) ?? (await getMobileSession(req));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();

@@ -13,13 +13,13 @@ export function generateOTP(): string {
 }
 
 export async function sendOTP(phone: string): Promise<{ success: boolean; message: string }> {
-  // Rate limit: max 3 OTPs per hour
+  // Rate limit: max 10 OTPs per hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const recentCount = await prisma.otpRequest.count({
     where: { phone, createdAt: { gte: oneHourAgo } },
   });
 
-  if (recentCount >= 3) {
+  if (recentCount >= 10) {
     return { success: false, message: "Too many OTP requests. Please try after an hour." };
   }
 
