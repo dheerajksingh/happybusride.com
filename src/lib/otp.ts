@@ -27,7 +27,6 @@ export async function sendOTP(phone: string): Promise<{ success: boolean; messag
   const hashedCode = await hash(code, 10);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-  // Find existing user
   const user = await prisma.user.findUnique({ where: { phone } });
 
   await prisma.otpRequest.create({
@@ -39,7 +38,6 @@ export async function sendOTP(phone: string): Promise<{ success: boolean; messag
     },
   });
 
-  // Mock SMS: log to console in dev, integrate Twilio/MSG91 in prod
   console.log(`[OTP] Phone: ${phone} → Code: ${code} (expires in ${OTP_EXPIRY_MINUTES} min)`);
 
   return { success: true, message: "OTP sent successfully" };
@@ -58,18 +56,10 @@ export async function verifyOTP(
     orderBy: { createdAt: "desc" },
   });
 
-  if (!latestOtp) {
-    return { valid: false };
-  }
+  if (!latestOtp) return { valid: false };
+  if (latestOtp.attempts >= MAX_ATTEMPTS) return { valid: false };
 
-  if (latestOtp.attempts >= MAX_ATTEMPTS) {
-    return { valid: false };
-  }
-
-  // If dev code is set, accept it directly without bcrypt comparison
-  const valid = process.env.OTP_DEV_CODE && code === process.env.OTP_DEV_CODE
-    ? true
-    : await compare(code, latestOtp.code);
+  const valid = await compare(code, latestOtp.code);
 
   if (!valid) {
     await prisma.otpRequest.update({
@@ -79,24 +69,18 @@ export async function verifyOTP(
     return { valid: false };
   }
 
-  // Mark OTP as used
   await prisma.otpRequest.update({
     where: { id: latestOtp.id },
     data: { usedAt: new Date() },
   });
 
-  // Upsert user
   let isNew = false;
   let user = await prisma.user.findUnique({ where: { phone } });
 
   if (!user) {
     isNew = true;
     user = await prisma.user.create({
-      data: {
-        phone,
-        phoneVerified: new Date(),
-        role: "PASSENGER",
-      },
+      data: { phone, phoneVerified: new Date(), role: "PASSENGER" },
     });
   } else {
     await prisma.user.update({
