@@ -26,7 +26,12 @@ export default async function AdminOperatorsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Operators ({operators.length})</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Operators ({operators.length})</h1>
+        <Link href="/admin/operators/new" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          + Add Operator
+        </Link>
+      </div>
 
       <div className="overflow-x-auto rounded-xl bg-gray-800 shadow-sm">
         <table className="w-full text-sm">

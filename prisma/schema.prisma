@@ -74,6 +74,7 @@ enum OperatorStatus {
   APPROVED
   REJECTED
   SUSPENDED
+  DELETED
 }
 
 enum DisputeStatus {

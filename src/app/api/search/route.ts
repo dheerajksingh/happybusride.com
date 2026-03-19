@@ -27,6 +27,7 @@ export async function GET(req: Request) {
           fromCityId: params.from,
           toCityId: params.to,
           isActive: true,
+          operator: { status: "APPROVED" },
         },
         ...(params.busType ? { bus: { busType: params.busType as any } } : {}),
         ...(params.minPrice ? { baseFare: { gte: params.minPrice } } : {}),
