@@ -1,24 +1,14 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 // TEMPORARY: Remove after diagnosis.
 export async function GET() {
-  // Show ALL keys present in the Lambda environment (no values exposed)
-  const allKeys = Object.keys(process.env).sort();
-
-  // Check specific vars we care about
   const check = [
-    "DATABASE_URL",
-    "AUTH_SECRET",
-    "NEXTAUTH_SECRET",
-    "NEXTAUTH_URL",
-    "AUTH_TRUST_HOST",
-    "UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_TOKEN",
-    "OTP_DEV_CODE",
-    "AWS_BUCKET_NAME",
-    "AWS_REGION",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
+    "DATABASE_URL", "AUTH_SECRET", "NEXTAUTH_SECRET", "NEXTAUTH_URL",
+    "AUTH_TRUST_HOST", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
+    "OTP_DEV_CODE", "AWS_BUCKET_NAME", "AWS_REGION",
+    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
   ];
 
   const specific = Object.fromEntries(
@@ -29,5 +19,17 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json({ allKeys, specific });
+  // Check if .env.production.local exists in the Lambda working directory
+  const cwd = process.cwd();
+  const envFilePath = path.join(cwd, ".env.production.local");
+  const envFileExists = fs.existsSync(envFilePath);
+  const envFilePreview = envFileExists
+    ? fs.readFileSync(envFilePath, "utf8").split("\n").slice(0, 5).join(" | ")
+    : "not found";
+
+  return NextResponse.json({
+    specific,
+    cwd,
+    envFile: { path: envFilePath, exists: envFileExists, preview: envFilePreview },
+  });
 }
