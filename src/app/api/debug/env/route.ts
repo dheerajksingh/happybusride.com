@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
-// TEMPORARY: Remove this route once env var issue is resolved.
+// TEMPORARY: Remove after diagnosis.
 export async function GET() {
-  const vars = [
+  // Show ALL keys present in the Lambda environment (no values exposed)
+  const allKeys = Object.keys(process.env).sort();
+
+  // Check specific vars we care about
+  const check = [
     "DATABASE_URL",
     "AUTH_SECRET",
     "NEXTAUTH_SECRET",
@@ -17,13 +21,13 @@ export async function GET() {
     "AWS_SECRET_ACCESS_KEY",
   ];
 
-  const result = Object.fromEntries(
-    vars.map((key) => {
+  const specific = Object.fromEntries(
+    check.map((key) => {
       const val = process.env[key];
       if (!val) return [key, "❌ MISSING"];
-      return [key, `✅ set (${val.slice(0, 8)}…)`];
+      return [key, `✅ (${val.slice(0, 8)}…)`];
     })
   );
 
-  return NextResponse.json(result);
+  return NextResponse.json({ allKeys, specific });
 }
