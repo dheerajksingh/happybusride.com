@@ -6,6 +6,7 @@ frontend:
         - npm ci
     build:
       commands:
+        - rm -f .env.production.local
         - echo "DATABASE_URL=$DATABASE_URL" >> .env.production.local
         - echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> .env.production.local
         - echo "AUTH_SECRET=$AUTH_SECRET" >> .env.production.local
