@@ -16,6 +16,7 @@ frontend:
         - echo "OTP_DEV_CODE=$OTP_DEV_CODE" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
+        - npx prisma migrate deploy
         - npx prisma generate
         - npm run build
   artifacts:

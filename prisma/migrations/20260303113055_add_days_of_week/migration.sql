@@ -4,8 +4,11 @@
   - A unique constraint covering the columns `[scheduleId,seatType,fromStopId,toStopId]` on the table `fare_rules` will be added. If there are existing duplicate values, this will fail.
 
 */
--- CreateEnum
-CREATE TYPE "MaintenanceType" AS ENUM ('SERVICE', 'INSPECTION', 'REPAIR', 'CLEANING');
+-- CreateEnum (guard against manual creation)
+DO $$ BEGIN
+  CREATE TYPE "MaintenanceType" AS ENUM ('SERVICE', 'INSPECTION', 'REPAIR', 'CLEANING');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- DropIndex
 DROP INDEX "fare_rules_scheduleId_seatType_key";
