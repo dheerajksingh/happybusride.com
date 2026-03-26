@@ -6,6 +6,12 @@ frontend:
         - npm ci
     build:
       commands:
+        # HOW TO ADD A NEW ENV VAR:
+        # 1. Add it in Amplify Console → App settings → Environment variables
+        # 2. Add a line below: echo "APP_VAR_NAME=$CONSOLE_VAR_NAME" >> .env.production.local
+        # 3. Commit + push — Amplify redeploys and the var becomes available
+        # NOTE: Amplify silently filters vars prefixed with NEXT_ during build.
+        #       If a NEXT_ var is missing, source its value from a non-NEXT_ var instead.
         - rm -f .env.production.local
         - echo "DATABASE_URL=$DATABASE_URL" >> .env.production.local
         - echo "NEXTAUTH_SECRET=$AUTH_SECRET" >> .env.production.local
