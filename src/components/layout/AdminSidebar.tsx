@@ -14,6 +14,7 @@ const navItems = [
   { href: "/admin/refunds", label: "Refunds", icon: "💸" },
   { href: "/admin/pricing", label: "Pricing & Commission", icon: "⚙️" },
   { href: "/admin/analytics", label: "Analytics", icon: "📈" },
+  { href: "/admin/cache", label: "Cache Management", icon: "🗄️" },
 ];
 
 export function AdminSidebar() {

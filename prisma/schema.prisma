@@ -348,16 +348,19 @@ model Seat {
 // ============================================================
 
 model City {
-  id       String  @id @default(cuid())
-  name     String  @unique
-  state    String
-  code     String? @unique
-  isActive Boolean @default(true)
+  id        String   @id @default(cuid())
+  name      String
+  state     String
+  code      String?  @unique
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+  isActive  Boolean  @default(true)
 
   fromRoutes Route[]     @relation("FromCity")
   toRoutes   Route[]     @relation("ToCity")
   stops      RouteStop[]
 
+  @@unique([name, state])
   @@map("cities")
 }
 
