@@ -11,8 +11,10 @@ frontend:
         - echo "AUTH_SECRET=$AUTH_SECRET" >> .env.production.local
         - echo "AUTH_TRUST_HOST=1" >> .env.production.local
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production.local
-        - echo "AWS_BUCKET_NAME=$AWS_BUCKET_NAME" >> .env.production.local
-        - echo "AWS_REGION=$AWS_REGION" >> .env.production.local
+        - echo "AWS_BUCKET_NAME=$BUCKET_NAME" >> .env.production.local
+        - echo "AWS_REGION=$REGION" >> .env.production.local
+        - echo "AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID" >> .env.production.local
+        - echo "AWS_SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY" >> .env.production.local
         - echo "OTP_DEV_CODE=$OTP_DEV_CODE" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
