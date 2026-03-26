@@ -1,12 +1,7 @@
 /**
  * Generic Redis cache helpers.
  * All keys are namespaced under "cache:" to avoid collisions.
- *
- * Usage:
- *   await cacheSet("cities", citiesArray);
- *   const cities = await cacheGet<City[]>("cities");
- *   await cacheDel("cities");
- *   const keys = await cacheKeys();
+ * All functions degrade gracefully when Redis is unavailable.
  */
 
 import { getRedis } from "./redis";
@@ -18,55 +13,75 @@ export interface CacheMeta {
   uploadedAt: string;
   count: number;
   columns: string[];
-  source: string; // e.g. "csv", "manual"
+  source: string;
 }
 
 function dataKey(key: string) { return `${NS}${key}`; }
 function metaKey(key: string) { return `${NS}${key}${META_SUFFIX}`; }
 
-/** Get cached data. Returns null on miss. */
+/** Get cached data. Returns null on miss or when Redis is unavailable. */
 export async function cacheGet<T>(key: string): Promise<T | null> {
   try {
     const redis = getRedis();
-    const val = await redis.get<T>(dataKey(key));
-    return val ?? null;
+    if (!redis) return null;
+    return (await redis.get<T>(dataKey(key))) ?? null;
   } catch {
     return null;
   }
 }
 
-/** Store data in cache with optional TTL in seconds (default: no expiry). */
+/** Store data in cache. No-op when Redis is unavailable. */
 export async function cacheSet<T>(
   key: string,
   data: T,
   meta: Omit<CacheMeta, "uploadedAt">,
   ttlSeconds?: number
 ): Promise<void> {
-  const redis = getRedis();
-  const opts = ttlSeconds ? { ex: ttlSeconds } : undefined;
-  await Promise.all([
-    redis.set(dataKey(key), data, opts),
-    redis.set(metaKey(key), { ...meta, uploadedAt: new Date().toISOString() } satisfies CacheMeta),
-  ]);
+  try {
+    const redis = getRedis();
+    if (!redis) return;
+    const opts = ttlSeconds ? { ex: ttlSeconds } : undefined;
+    await Promise.all([
+      redis.set(dataKey(key), data, opts),
+      redis.set(metaKey(key), { ...meta, uploadedAt: new Date().toISOString() } satisfies CacheMeta),
+    ]);
+  } catch {
+    // Redis unavailable — continue without caching
+  }
 }
 
-/** Delete a cache key and its metadata. */
+/** Delete a cache key and its metadata. No-op when Redis is unavailable. */
 export async function cacheDel(key: string): Promise<void> {
-  const redis = getRedis();
-  await redis.del(dataKey(key), metaKey(key));
+  try {
+    const redis = getRedis();
+    if (!redis) return;
+    await redis.del(dataKey(key), metaKey(key));
+  } catch {
+    // ignore
+  }
 }
 
-/** List all cache keys (without the "cache:" prefix, without ":meta" entries). */
+/** List all cache keys. Returns empty array when Redis is unavailable. */
 export async function cacheKeys(): Promise<string[]> {
-  const redis = getRedis();
-  const keys = await redis.keys(`${NS}*`);
-  return keys
-    .filter((k) => !k.endsWith(META_SUFFIX))
-    .map((k) => k.slice(NS.length));
+  try {
+    const redis = getRedis();
+    if (!redis) return [];
+    const keys = await redis.keys(`${NS}*`);
+    return keys
+      .filter((k) => !k.endsWith(META_SUFFIX))
+      .map((k) => k.slice(NS.length));
+  } catch {
+    return [];
+  }
 }
 
-/** Get metadata for a cache key. */
+/** Get metadata for a cache key. Returns null when Redis is unavailable. */
 export async function cacheGetMeta(key: string): Promise<CacheMeta | null> {
-  const redis = getRedis();
-  return redis.get<CacheMeta>(metaKey(key));
+  try {
+    const redis = getRedis();
+    if (!redis) return null;
+    return redis.get<CacheMeta>(metaKey(key));
+  } catch {
+    return null;
+  }
 }

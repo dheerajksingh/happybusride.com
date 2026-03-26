@@ -1,13 +1,21 @@
 import { Redis } from "@upstash/redis";
 
-// Singleton Redis client using Upstash REST API (works on Lambda/Edge/Node)
-// Redis.fromEnv() reads UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
-// directly from the runtime environment at call time.
 let _redis: Redis | null = null;
+let _attempted = false;
 
-export function getRedis(): Redis {
-  if (!_redis) {
-    _redis = Redis.fromEnv();
+/** Returns a Redis client, or null if env vars are not configured. */
+export function getRedis(): Redis | null {
+  if (_attempted) return _redis;
+  _attempted = true;
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    console.warn("[redis] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set — Redis disabled, falling back to DB.");
+    return null;
   }
+
+  _redis = new Redis({ url, token });
   return _redis;
 }
