@@ -12,6 +12,40 @@ export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+/**
+ * Sends OTP via MSG91.
+ * In dev (OTP_DEV_CODE set), skips the API call and just logs.
+ */
+async function dispatchSMS(phone: string, code: string): Promise<void> {
+  if (process.env.OTP_DEV_CODE) {
+    console.log(`[OTP-DEV] Phone: ${phone} → Code: ${code}`);
+    return;
+  }
+
+  const apiKey     = process.env.MSG91_API_KEY!;
+  const templateId = process.env.MSG91_TEMPLATE_ID!;
+  const senderId   = process.env.MSG91_SENDER_ID ?? "HPYBSR";
+
+  const res = await fetch("https://control.msg91.com/api/v5/otp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      authkey: apiKey,
+    },
+    body: JSON.stringify({
+      template_id: templateId,
+      mobile: `91${phone}`,   // India country code prefix
+      otp: code,
+      sender: senderId,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`MSG91 error ${res.status}: ${text}`);
+  }
+}
+
 export async function sendOTP(phone: string): Promise<{ success: boolean; message: string }> {
   // Rate limit: max 10 OTPs per hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -38,7 +72,7 @@ export async function sendOTP(phone: string): Promise<{ success: boolean; messag
     },
   });
 
-  console.log(`[OTP] Phone: ${phone} → Code: ${code} (expires in ${OTP_EXPIRY_MINUTES} min)`);
+  await dispatchSMS(phone, code);
 
   return { success: true, message: "OTP sent successfully" };
 }

@@ -104,6 +104,14 @@ enum MaintenanceType {
   CLEANING
 }
 
+enum CharterBookingStatus {
+  PENDING_DEPOSIT
+  CONFIRMED
+  CANCELLED_PASSENGER
+  CANCELLED_OPERATOR
+  COMPLETED
+}
+
 // ============================================================
 // USER
 // ============================================================
@@ -129,10 +137,11 @@ model User {
   admin       AdminProfile?
   sessions    Session[]
   otpRequests OtpRequest[]
-  bookings    Booking[]
-  reviews     Review[]
-  disputes    Dispute[]         @relation("RaisedByUser")
-  wallet      WalletTransaction[]
+  bookings        Booking[]
+  reviews         Review[]
+  disputes        Dispute[]         @relation("RaisedByUser")
+  wallet          WalletTransaction[]
+  charterBookings CharterBooking[]
 
   @@map("users")
 }
@@ -295,9 +304,16 @@ model Bus {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  isCharterAvailable    Boolean  @default(false)
+  charterRatePerDay     Decimal? @db.Decimal(10, 2)
+  charterRatePerKm      Decimal? @db.Decimal(10, 2)
+  charterDepositPercent Int?
+  charterCancelPolicy   String?
+
   seats            Seat[]
   schedules        Schedule[]
   maintenanceLogs  MaintenanceLog[]
+  charterBookings  CharterBooking[]
 
   @@map("buses")
 }
@@ -679,6 +695,58 @@ model WalletTransaction {
 
   @@index([userId])
   @@map("wallet_transactions")
+}
+
+// ============================================================
+// CHARTER BOOKING
+// ============================================================
+
+model CharterBooking {
+  id                 String               @id @default(cuid())
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id])
+  busId              String
+  bus                Bus                  @relation(fields: [busId], references: [id])
+  pnr                String               @unique @default(cuid())
+  status             CharterBookingStatus @default(PENDING_DEPOSIT)
+  startDate          DateTime             @db.Date
+  endDate            DateTime             @db.Date
+  numDays            Int
+  estimatedKm        Decimal              @db.Decimal(10, 2)
+  ratePerDay         Decimal              @db.Decimal(10, 2)
+  ratePerKm          Decimal              @db.Decimal(10, 2)
+  depositPercent     Int
+  depositAmount      Decimal              @db.Decimal(10, 2)
+  totalAmount        Decimal              @db.Decimal(10, 2)
+  pickupAddress      String?
+  dropAddress        String?
+  routeWaypoints     Json?
+  passengerCount     Int                  @default(1)
+  purpose            String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  payment CharterPayment?
+
+  @@index([userId])
+  @@index([busId])
+  @@map("charter_bookings")
+}
+
+model CharterPayment {
+  id               String         @id @default(cuid())
+  charterBookingId String         @unique
+  charterBooking   CharterBooking @relation(fields: [charterBookingId], references: [id])
+  amount           Decimal        @db.Decimal(10, 2)
+  method           PaymentMethod
+  status           PaymentStatus  @default(PENDING)
+  gatewayTxnId     String?
+  initiatedAt      DateTime       @default(now())
+  completedAt      DateTime?
+
+  @@map("charter_payments")
 }
 
 // ============================================================

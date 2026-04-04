@@ -23,6 +23,9 @@ frontend:
         - echo "AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID" >> .env.production.local
         - echo "AWS_SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY" >> .env.production.local
         - echo "OTP_DEV_CODE=$OTP_DEV_CODE" >> .env.production.local
+        - echo "MSG91_API_KEY=$MSG91_API_KEY" >> .env.production.local
+        - echo "MSG91_TEMPLATE_ID=$MSG91_TEMPLATE_ID" >> .env.production.local
+        - echo "MSG91_SENDER_ID=$MSG91_SENDER_ID" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
         - npx prisma migrate deploy

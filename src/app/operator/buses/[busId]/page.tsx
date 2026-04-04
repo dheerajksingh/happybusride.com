@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { BUS_TYPE_LABELS } from "@/constants/config";
+import CharterSettings from "./CharterSettings";
 
 const AMENITY_OPTIONS = [
   { key: "wifi", label: "WiFi" },
@@ -73,7 +74,7 @@ export default function EditBusPage({ params }: { params: Promise<{ busId: strin
   if (loading) return <div className="p-8 text-gray-500">Loading...</div>;
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-xl" id="bus-edit-root">
       <div className="mb-4">
         <Link href="/operator/buses" className="text-sm text-blue-600 hover:underline">← Bus Fleet</Link>
       </div>
@@ -152,6 +153,8 @@ export default function EditBusPage({ params }: { params: Promise<{ busId: strin
           </Link>
         </div>
       </form>
+
+      <CharterSettings busId={busId} />
     </div>
   );
 }
