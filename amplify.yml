@@ -28,6 +28,7 @@ frontend:
         - echo "MSG91_SENDER_ID=$MSG91_SENDER_ID" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
+        - export DATABASE_URL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2-)
         - npx prisma migrate deploy
         - npx prisma generate
         - npm run build
