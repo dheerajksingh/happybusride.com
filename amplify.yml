@@ -29,7 +29,11 @@ frontend:
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
         - echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" >> .env.production.local
-        - echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" >> .env.production.local
+        # NEXT_PUBLIC_ vars are filtered by Amplify build environment.
+        # Store the public key as GOOGLE_MAPS_PUBLIC_KEY in Amplify Console.
+        - echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_PUBLIC_KEY" >> .env.production.local
+        # Diagnostics — shows key lengths in build log (safe, no values exposed)
+        - echo "DIAG google server key length=${#GOOGLE_MAPS_API_KEY} public key length=${#GOOGLE_MAPS_PUBLIC_KEY}"
         - export DATABASE_URL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2-)
         - npx prisma migrate deploy
         - npx prisma generate
