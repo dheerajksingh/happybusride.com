@@ -11,6 +11,7 @@ declare module "next-auth" {
       operatorId: string | null;
       operatorStatus: string | null;
       driverId: string | null;
+      corporateCompanyId: string | null;
     };
   }
 
@@ -19,5 +20,6 @@ declare module "next-auth" {
     operatorId?: string | null;
     operatorStatus?: string | null;
     driverId?: string | null;
+    corporateCompanyId?: string | null;
   }
 }

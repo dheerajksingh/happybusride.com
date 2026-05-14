@@ -26,7 +26,12 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/admin/operators", label: "Operators", icon: "🏢" },
     { href: "/admin/analytics", label: "Revenue", icon: "📈" },
   ],
-  corporate: [],
+  corporate: [
+    { href: "/admin", label: "Dashboard", icon: "📊" },
+    { href: "/admin/corporate", label: "Corporate Pricing", icon: "💰" },
+    { href: "/admin/operators", label: "Operators", icon: "🏢" },
+    { href: "/admin/analytics", label: "Analytics", icon: "📈" },
+  ],
 };
 
 const pillActive: Record<Service, string> = {
@@ -62,6 +67,9 @@ export function AdminSidebar() {
     if (pathname.startsWith("/admin/charter")) {
       setService("charter");
       localStorage.setItem("adminService", "charter");
+    } else if (pathname.startsWith("/admin/corporate")) {
+      setService("corporate");
+      localStorage.setItem("adminService", "corporate");
     }
   }, [pathname]);
 
@@ -98,7 +106,7 @@ export function AdminSidebar() {
                 {SERVICE_LABELS[s]}
                 {s === "corporate" && !active && (
                   <span className="ml-1.5 rounded bg-violet-900/50 px-1 py-0.5 text-[10px] text-violet-400">
-                    Soon
+                    New
                   </span>
                 )}
               </button>
@@ -108,16 +116,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {service === "corporate" ? (
-          <div className="rounded-xl border border-violet-800 bg-violet-900/20 p-4 text-center">
-            <p className="mb-1 text-2xl">🏢</p>
-            <p className="text-sm font-semibold text-violet-400">Coming Soon</p>
-            <p className="mt-1 text-xs text-violet-500">
-              Corporate management is under development.
-            </p>
-          </div>
-        ) : (
-          navItems.map((item) => {
+        {navItems.map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/admin" && pathname.startsWith(item.href));
@@ -135,8 +134,7 @@ export function AdminSidebar() {
                 {item.label}
               </Link>
             );
-          })
-        )}
+          })}
       </nav>
 
       <div className="border-t border-gray-700 px-4 py-4">

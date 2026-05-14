@@ -25,7 +25,12 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/operator/charter", label: "Bookings", icon: "📋" },
     { href: "/operator/earnings", label: "Earnings", icon: "💰" },
   ],
-  corporate: [],
+  corporate: [
+    { href: "/operator", label: "Dashboard", icon: "📊" },
+    { href: "/operator/corporate", label: "Corporate Requests", icon: "🏢" },
+    { href: "/operator/buses", label: "Fleet", icon: "🚌" },
+    { href: "/operator/earnings", label: "Earnings", icon: "💰" },
+  ],
 };
 
 const activeNavColors: Record<Service, string> = {
@@ -67,6 +72,9 @@ export function OperatorSidebar() {
     if (pathname.startsWith("/operator/charter")) {
       setService("charter");
       localStorage.setItem("operatorService", "charter");
+    } else if (pathname.startsWith("/operator/corporate")) {
+      setService("corporate");
+      localStorage.setItem("operatorService", "corporate");
     }
   }, [pathname]);
 
@@ -101,7 +109,7 @@ export function OperatorSidebar() {
                 {SERVICE_LABELS[s]}
                 {s === "corporate" && !active && (
                   <span className="ml-1.5 rounded bg-violet-100 px-1 py-0.5 text-[10px] text-violet-600">
-                    Soon
+                    New
                   </span>
                 )}
               </button>
@@ -111,16 +119,7 @@ export function OperatorSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {service === "corporate" ? (
-          <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 text-center">
-            <p className="mb-1 text-2xl">🏢</p>
-            <p className="text-sm font-semibold text-violet-700">Coming Soon</p>
-            <p className="mt-1 text-xs text-violet-500">
-              Corporate booking management is under development.
-            </p>
-          </div>
-        ) : (
-          navItems.map((item) => {
+        {navItems.map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/operator" && pathname.startsWith(item.href));
@@ -138,8 +137,7 @@ export function OperatorSidebar() {
                 {item.label}
               </Link>
             );
-          })
-        )}
+          })}
       </nav>
 
       <div className="border-t border-gray-200 px-4 py-4">

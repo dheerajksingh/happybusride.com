@@ -145,7 +145,7 @@ export default function LandingPage() {
                 <p className="text-xs text-gray-500 leading-relaxed">{s.description}</p>
                 {s.id === "corporate" && (
                   <span className="mt-2 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                    Coming Soon
+                    New
                   </span>
                 )}
               </button>
@@ -196,28 +196,56 @@ function CorporatePanel() {
   return (
     <div className="space-y-4 text-center">
       <div>
-        <span className="inline-block rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 mb-3">
-          Coming Soon
-        </span>
-        <p className="text-2xl font-bold text-gray-900">Corporate travel, simplified</p>
+        <p className="text-2xl font-bold text-gray-900">Employee commute, managed end-to-end</p>
         <p className="mt-1 text-sm text-gray-500">
-          Managed bus fleets for employee commutes, offsites, and recurring corporate routes — with SLA, billing, and reporting built in.
+          Your company sets the office address and timings. We group your employees by neighbourhood,
+          suggest optimised routes, and connect you with verified operators who quote competitively.
         </p>
       </div>
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-left space-y-2">
-        <p className="text-sm font-semibold text-gray-700">Leave your details and we'll reach out</p>
-        <div className="flex gap-2">
-          <input
-            type="email"
-            placeholder="Work email"
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
-          >
-            Notify Me
-          </button>
+
+      {/* How it works */}
+      <div className="grid grid-cols-4 gap-3 text-left">
+        {[
+          { step: "1", title: "Add employees", desc: "Upload a CSV or enter addresses manually" },
+          { step: "2", title: "Set timings", desc: "Office arrival & end-of-day departure times" },
+          { step: "3", title: "Get quotes", desc: "Operators bid — you chat and accept the best offer" },
+          { step: "4", title: "Track daily", desc: "Employees track live bus; driver sees boarding list" },
+        ].map((s) => (
+          <div key={s.step} className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+            <div className="mb-1 text-xs font-bold text-violet-400">Step {s.step}</div>
+            <div className="text-sm font-semibold text-gray-900">{s.title}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{s.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+        <Link
+          href="/corporate/register"
+          className="inline-block rounded-xl bg-violet-600 px-8 py-3 text-base font-semibold text-white hover:bg-violet-700"
+        >
+          Register Your Company
+        </Link>
+        <Link
+          href="/corporate/login"
+          className="inline-block rounded-xl border border-violet-300 px-8 py-3 text-base font-semibold text-violet-700 hover:bg-violet-50"
+        >
+          Sign In
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-3 divide-x divide-gray-100 rounded-xl border border-gray-100 bg-gray-50 py-3 text-center text-sm">
+        <div>
+          <p className="font-bold text-gray-900">Route optimised</p>
+          <p className="text-xs text-gray-500">neighbourhood clusters</p>
+        </div>
+        <div>
+          <p className="font-bold text-gray-900">Operator bids</p>
+          <p className="text-xs text-gray-500">transparent pricing</p>
+        </div>
+        <div>
+          <p className="font-bold text-gray-900">Live tracking</p>
+          <p className="text-xs text-gray-500">for every employee</p>
         </div>
       </div>
     </div>

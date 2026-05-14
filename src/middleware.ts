@@ -53,6 +53,30 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Corporate routes (exclude public auth pages and registration API)
+  const corporatePublic = ["/corporate/login", "/corporate/register"];
+  const corporateApiPublic = ["/api/corporate/register", "/api/corporate/geocode"];
+  // Operators may call the employee list endpoint to render the route map
+  const corporateApiOperatorAllowed = (p: string) =>
+    role === "OPERATOR" && (
+      /^\/api\/corporate\/requests\/[^/]+\/employees$/.test(p) ||
+      /^\/api\/corporate\/requests\/[^/]+\/routes$/.test(p)
+    );
+
+  if (
+    (pathname.startsWith("/corporate") && !corporatePublic.includes(pathname)) ||
+    (pathname.startsWith("/api/corporate") &&
+      !corporateApiPublic.includes(pathname) &&
+      !corporateApiOperatorAllowed(pathname))
+  ) {
+    if (!token) {
+      return NextResponse.redirect(new URL("/corporate/login", req.url));
+    }
+    if (role !== "CORPORATE") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+  }
+
   // Passenger protected routes
   if (pathname.startsWith("/my-trips") || pathname.startsWith("/booking")) {
     if (!token) {
@@ -68,10 +92,12 @@ export const config = {
     "/operator/:path*",
     "/driver/:path*",
     "/admin/:path*",
+    "/corporate/:path*",
     "/my-trips/:path*",
     "/booking/:path*",
     "/api/operator/:path*",
     "/api/driver/:path*",
     "/api/admin/:path*",
+    "/api/corporate/:path*",
   ],
 };

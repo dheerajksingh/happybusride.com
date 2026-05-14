@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HappyBusRide — Wireframes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#e8e8e8;display:flex;height:100vh;overflow:hidden}
+#sidebar{width:240px;min-width:240px;background:#1e1e2e;color:#cdd6f4;display:flex;flex-direction:column;overflow:hidden}
+#sidebar h1{padding:16px;font-size:13px;font-weight:700;letter-spacing:.5px;color:#89b4fa;border-bottom:1px solid #313244;flex-shrink:0}
+#sidebar nav{overflow-y:auto;flex:1;padding:8px 0}
+.group-label{padding:8px 14px 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6c7086}
+.screen-btn{display:block;width:100%;text-align:left;padding:6px 14px;font-size:12px;color:#bac2de;background:none;border:none;cursor:pointer;border-left:3px solid transparent;transition:all .1s}
+.screen-btn:hover{background:#313244;color:#cdd6f4}
+.screen-btn.active{background:#313244;border-left-color:#89b4fa;color:#89b4fa}
+#canvas{flex:1;overflow:auto;padding:32px;display:flex;flex-direction:column;align-items:center}
+.device{width:390px;min-height:700px;background:#fff;border-radius:16px;box-shadow:0 4px 40px rgba(0,0,0,.18);overflow:hidden;position:relative}
+.device.desktop{width:900px;min-height:600px}
+.screen-label{font-size:11px;color:#666;margin-bottom:10px;text-align:center;letter-spacing:.5px;text-transform:uppercase}
+
+/* Wireframe primitives */
+.wf-bar{background:#f0f0f0;border-bottom:1px solid #ddd}
+.wf-hero{background:#c7d2fe;display:flex;align-items:center;justify-content:center;color:#4338ca;font-weight:600;font-size:13px}
+.wf-box{background:#e5e7eb;border:1px solid #d1d5db;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:11px;font-weight:500}
+.wf-btn{background:#374151;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:600;cursor:default;display:inline-block}
+.wf-btn.outline{background:#fff;color:#374151;border:1.5px solid #9ca3af}
+.wf-btn.primary{background:#2563eb}
+.wf-btn.amber{background:#d97706}
+.wf-btn.green{background:#16a34a}
+.wf-btn.red{background:#dc2626}
+.wf-btn.violet{background:#7c3aed}
+.wf-input{border:1.5px solid #d1d5db;border-radius:6px;padding:8px 10px;font-size:12px;color:#9ca3af;background:#f9fafb;width:100%}
+.wf-tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600}
+.wf-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
+.wf-divider{height:1px;background:#f3f4f6;margin:8px 0}
+.wf-avatar{width:36px;height:36px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#1d4ed8;flex-shrink:0}
+.wf-stat{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px}
+.wf-table{width:100%;border-collapse:collapse;font-size:11px}
+.wf-table th{background:#f3f4f6;padding:6px 10px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb}
+.wf-table td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+.wf-table tr:last-child td{border-bottom:none}
+.wf-seat{width:28px;height:28px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;margin:2px}
+.wf-seat.av{background:#dcfce7;border:1px solid #86efac;color:#16a34a}
+.wf-seat.bk{background:#fee2e2;border:1px solid #fca5a5;color:#dc2626}
+.wf-seat.sel{background:#dbeafe;border:1px solid #93c5fd;color:#1d4ed8}
+.wf-nav-bottom{display:flex;border-top:1px solid #e5e7eb;background:#fff}
+.wf-nav-item{flex:1;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:#9ca3af;cursor:default}
+.wf-nav-item.active{color:#2563eb}
+.wf-step{display:flex;align-items:center;gap:6px;font-size:11px}
+.wf-step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.wf-step-dot.done{background:#16a34a;color:#fff}
+.wf-step-dot.active{background:#2563eb;color:#fff}
+.wf-step-dot.todo{background:#e5e7eb;color:#9ca3af}
+.wf-map{background:linear-gradient(135deg,#e0f2fe 0%,#bae6fd 100%);border:1px solid #7dd3fc;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#0369a1;font-size:11px;font-weight:600}
+.wf-sidebar-layout{display:flex;height:100%}
+.wf-side-nav{width:180px;border-right:1px solid #e5e7eb;background:#f9fafb;padding:12px 0;flex-shrink:0}
+.wf-side-item{padding:7px 14px;font-size:11px;color:#6b7280;cursor:default;border-left:3px solid transparent}
+.wf-side-item.active{color:#2563eb;border-left-color:#2563eb;background:#eff6ff;font-weight:600}
+.wf-main-content{flex:1;overflow:auto;padding:16px}
+p.hint{color:#9ca3af;font-size:10px;margin-top:2px}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>HappyBusRide Wireframes</h1>
+  <nav id="nav"></nav>
+</div>
+
+<div id="canvas">
+  <div class="screen-label" id="screen-label"></div>
+  <div id="screen-host"></div>
+</div>
+
+<script>
+const SCREENS = {
+  "Landing": {
+    label: "Landing — Home",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%;flex-direction:column">
+  <!-- Top bar -->
+  <div class="wf-bar" style="padding:10px 20px;display:flex;align-items:center;justify-content:space-between">
+    <span style="font-weight:800;font-size:14px;color:#2563eb">HappyBusRide</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="wf-tag" style="background:#f0f9ff;color:#0369a1">My Trips</span>
+      <div class="wf-avatar" style="width:28px;height:28px;font-size:11px">P</div>
+    </div>
+  </div>
+  <!-- Hero -->
+  <div class="wf-hero" style="height:320px;flex-direction:column;gap:12px;padding:20px">
+    <div style="display:flex;gap:6px;background:rgba(255,255,255,.25);padding:6px;border-radius:12px">
+      <span style="background:#fff;color:#4338ca;padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700">🎫 Bus Tickets</span>
+      <span style="color:#4338ca;padding:5px 14px;border-radius:8px;font-size:11px;font-weight:600">🚌 Charter</span>
+      <span style="color:#4338ca;padding:5px 14px;border-radius:8px;font-size:11px;font-weight:600">🏢 Corporate</span>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:22px;font-weight:800;margin-bottom:4px">City to city, on your schedule</div>
+      <div style="font-size:12px;opacity:.8">Search and book seats on 1000+ routes in India</div>
+    </div>
+    <!-- Search card -->
+    <div style="background:#fff;border-radius:14px;padding:16px;width:580px;box-shadow:0 4px 20px rgba(0,0,0,.1)">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1"><div style="font-size:9px;color:#6b7280;font-weight:700;margin-bottom:4px">FROM</div><div class="wf-input">Mumbai</div></div>
+        <div style="width:28px;height:28px;background:#e0e7ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:2px">⇄</div>
+        <div style="flex:1"><div style="font-size:9px;color:#6b7280;font-weight:700;margin-bottom:4px">TO</div><div class="wf-input">Pune</div></div>
+        <div style="flex:.7"><div style="font-size:9px;color:#6b7280;font-weight:700;margin-bottom:4px">DATE</div><div class="wf-input">10 May 2026</div></div>
+        <span class="wf-btn primary" style="padding:8px 20px;white-space:nowrap">Search Buses</span>
+      </div>
+    </div>
+  </div>
+  <!-- Features grid -->
+  <div style="padding:20px;background:#f9fafb">
+    <div style="font-size:14px;font-weight:700;text-align:center;margin-bottom:14px">Why choose Bus Tickets?</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      ${["💺 Choose Your Seat","📍 Live Tracking","💸 Easy Cancel","💳 All Payments"].map(f=>`
+      <div class="wf-card" style="text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">${f.split(" ")[0]}</div>
+        <div style="font-size:11px;font-weight:600">${f.substring(f.indexOf(" ")+1)}</div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:2px">Short feature desc here</div>
+      </div>`).join("")}
+    </div>
+  </div>
+</div>`
+  },
+
+  "PassengerSearch": {
+    label: "Passenger — Search Results",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">←</span>
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:700">Mumbai → Pune</div>
+      <div style="font-size:10px;color:#6b7280">10 May · 1 passenger</div>
+    </div>
+    <span class="wf-tag" style="background:#e0e7ff;color:#4338ca;font-size:10px">Change</span>
+  </div>
+  <!-- Filters -->
+  <div style="padding:8px 14px;display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid #f3f4f6">
+    ${["All","AC","Non-AC","Sleeper","Luxury"].map((f,i)=>`<span style="padding:4px 10px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap;${i===0?'background:#1e293b;color:#fff':'background:#f3f4f6;color:#374151'}">${f}</span>`).join("")}
+  </div>
+  <!-- Sort -->
+  <div style="padding:6px 14px;display:flex;gap:10px;font-size:10px;color:#6b7280;border-bottom:1px solid #f3f4f6">
+    <span style="font-weight:600;color:#2563eb">Sort: Departure</span>
+    <span>Price</span><span>Duration</span><span>Rating</span>
+  </div>
+  <!-- Bus cards -->
+  <div style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    ${[
+      {op:"Sharma Travels",dep:"06:00",arr:"09:30",dur:"3h 30m",type:"AC Sleeper",price:"₹650",seats:12,rating:"4.5"},
+      {op:"VRL Travels",dep:"08:15",arr:"12:00",dur:"3h 45m",type:"Luxury",price:"₹950",seats:4,rating:"4.8"},
+      {op:"Orange Tours",dep:"10:30",arr:"14:15",dur:"3h 45m",type:"Non-AC",price:"₹320",seats:22,rating:"4.1"},
+      {op:"IntraBus",dep:"14:00",arr:"17:30",dur:"3h 30m",type:"AC Seater",price:"₹480",seats:8,rating:"4.3"},
+    ].map(b=>`
+    <div class="wf-card" style="cursor:default">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:12px;font-weight:700">${b.op}</div>
+          <div style="font-size:10px;color:#6b7280">${b.type}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:#1d4ed8">${b.price}</div>
+          <div style="font-size:9px;color:#9ca3af">per seat</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="font-size:14px;font-weight:800">${b.dep}</span>
+        <div style="flex:1;border-top:1.5px dashed #d1d5db;position:relative">
+          <span style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:9px;color:#6b7280;background:#fff;padding:0 4px">${b.dur}</span>
+        </div>
+        <span style="font-size:14px;font-weight:800">${b.arr}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;gap:6px;font-size:10px;color:#6b7280">
+          <span>⭐ ${b.rating}</span>
+          <span>· ${b.seats} seats left</span>
+        </div>
+        <span class="wf-btn primary" style="font-size:10px;padding:5px 12px">Select Seats</span>
+      </div>
+    </div>`).join("")}
+  </div>
+</div>`
+  },
+
+  "PassengerSeatSelect": {
+    label: "Passenger — Seat Selection",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span>
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:700">Sharma Travels · AC Sleeper</div>
+      <div style="font-size:10px;color:#6b7280">06:00 Mumbai → 09:30 Pune · 10 May</div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px">
+    <!-- Legend -->
+    <div style="display:flex;gap:10px;margin-bottom:12px;font-size:10px">
+      <span><span class="wf-seat av">A</span> Available</span>
+      <span><span class="wf-seat bk">B</span> Booked</span>
+      <span><span class="wf-seat sel">S</span> Selected</span>
+    </div>
+    <!-- Lower deck -->
+    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">Lower Deck</div>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+        ${[
+          ["av","av","","bk","bk"],
+          ["sel","av","","av","bk"],
+          ["av","bk","","av","av"],
+          ["av","av","","bk","av"],
+        ].map((row,ri)=>`
+        <div style="display:flex;gap:4px">
+          ${row.map((s,ci)=>s?`<span class="wf-seat ${s}">${s==="av"?"A":s==="bk"?"B":"✓"}</span>`:`<span style="width:28px"></span>`).join("")}
+        </div>`).join("")}
+      </div>
+    </div>
+    <!-- Upper deck -->
+    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">Upper Deck</div>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:14px">
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+        ${[
+          ["av","bk","","av","av"],
+          ["av","av","","bk","av"],
+          ["bk","av","","av","bk"],
+        ].map(row=>`
+        <div style="display:flex;gap:4px">
+          ${row.map((s,ci)=>s?`<span class="wf-seat ${s}">${s==="av"?"A":"B"}</span>`:`<span style="width:28px"></span>`).join("")}
+        </div>`).join("")}
+      </div>
+    </div>
+  </div>
+  <!-- Bottom bar -->
+  <div style="border-top:1px solid #e5e7eb;padding:12px 14px;background:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <div style="font-size:11px;color:#6b7280">1 seat selected (L2)</div>
+        <div style="font-size:16px;font-weight:800;color:#1d4ed8">₹650</div>
+      </div>
+      <span class="wf-btn primary">Continue</span>
+    </div>
+  </div>
+</div>`
+  },
+
+  "PassengerBookingReview": {
+    label: "Passenger — Booking Review",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span><span style="font-size:13px;font-weight:700">Review Booking</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+    <!-- Trip summary -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">Trip Summary</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>Mumbai → Pune</span><span style="font-weight:600">10 May 2026</span>
+      </div>
+      <div style="font-size:11px;color:#6b7280">Sharma Travels · AC Sleeper · Seat L2 · 06:00–09:30</div>
+    </div>
+    <!-- Boarding/drop -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Boarding &amp; Drop-off</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px">Boarding Point</div>
+      <select style="width:100%;border:1.5px solid #d1d5db;border-radius:6px;padding:7px;font-size:11px;color:#374151;background:#f9fafb;margin-bottom:8px">
+        <option>Dadar Bus Stand — 05:45</option>
+      </select>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px">Drop-off Point</div>
+      <select style="width:100%;border:1.5px solid #d1d5db;border-radius:6px;padding:7px;font-size:11px;color:#374151;background:#f9fafb">
+        <option>Pune Station — 09:30</option>
+      </select>
+    </div>
+    <!-- Passenger details -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Passenger Details</div>
+      ${["Full Name","Age","Gender"].map(f=>`
+      <div style="margin-bottom:8px">
+        <div style="font-size:10px;color:#6b7280;margin-bottom:3px">${f}</div>
+        <div class="wf-input">${f==="Gender"?"Male":"—"}</div>
+      </div>`).join("")}
+    </div>
+    <!-- Fare -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Fare Breakdown</div>
+      ${[["Base fare","₹600"],["GST (5%)","₹30"],["Convenience fee","₹20"]].map(([k,v])=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:4px"><span>${k}</span><span>${v}</span></div>`).join("")}
+      <div class="wf-divider"></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Total</span><span style="color:#1d4ed8">₹650</span></div>
+    </div>
+  </div>
+  <div style="padding:12px 14px;border-top:1px solid #e5e7eb">
+    <span class="wf-btn primary" style="width:100%;text-align:center;display:block">Proceed to Payment</span>
+  </div>
+</div>`
+  },
+
+  "PassengerPayment": {
+    label: "Passenger — Payment",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span><span style="font-size:13px;font-weight:700">Payment</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+    <div class="wf-card" style="background:#f0fdf4;border-color:#86efac">
+      <div style="font-size:11px;font-weight:700;color:#15803d">Amount to pay: ₹650</div>
+      <div style="font-size:10px;color:#16a34a">Mumbai → Pune · 10 May · Seat L2</div>
+    </div>
+    <!-- Payment options -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:10px">Select Payment Method</div>
+      ${[
+        {icon:"📱",label:"UPI",sub:"Google Pay, PhonePe, BHIM"},
+        {icon:"💳",label:"Credit / Debit Card",sub:"Visa, Mastercard, RuPay"},
+        {icon:"🏦",label:"Net Banking",sub:"All major banks"},
+        {icon:"👛",label:"HappyBus Wallet",sub:"Balance: ₹200"},
+      ].map((m,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:${i<3?'1px solid #f3f4f6':'none'};cursor:default">
+        <div style="width:32px;height:32px;background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px">${m.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600">${m.label}</div>
+          <div style="font-size:10px;color:#9ca3af">${m.sub}</div>
+        </div>
+        <span style="font-size:14px;color:#d1d5db">›</span>
+      </div>`).join("")}
+    </div>
+    <!-- UPI input expanded -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Enter UPI ID</div>
+      <div class="wf-input" style="margin-bottom:8px;color:#374151">user@okaxis</div>
+      <span class="wf-btn primary" style="width:100%;text-align:center;display:block">Pay ₹650</span>
+    </div>
+  </div>
+</div>`
+  },
+
+  "PassengerSuccess": {
+    label: "Passenger — Booking Success",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:20px;text-align:center">
+  <div style="width:64px;height:64px;background:#dcfce7;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:14px">✅</div>
+  <div style="font-size:18px;font-weight:800;color:#1d4ed8;margin-bottom:4px">Booking Confirmed!</div>
+  <div style="font-size:12px;color:#6b7280;margin-bottom:20px">Your ticket is ready</div>
+  <!-- Ticket card -->
+  <div style="width:100%;border:2px dashed #93c5fd;border-radius:14px;background:#eff6ff;padding:16px;margin-bottom:16px">
+    <div style="font-size:11px;color:#6b7280;margin-bottom:2px">PNR</div>
+    <div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#1d4ed8;margin-bottom:12px">HBR8821X</div>
+    <div class="wf-divider" style="border-top:1px dashed #93c5fd;background:none"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;text-align:left">
+      ${[["Route","Mumbai → Pune"],["Date","10 May 2026"],["Bus","Sharma Travels"],["Seat","L2 (Lower)"],["Dep","06:00"],["Arr","09:30"]].map(([k,v])=>`
+      <div><div style="font-size:9px;color:#9ca3af;font-weight:600">${k}</div><div style="font-size:11px;font-weight:700;color:#1e293b">${v}</div></div>`).join("")}
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+    <span class="wf-btn primary" style="text-align:center">Download Ticket (PDF)</span>
+    <span class="wf-btn outline" style="text-align:center">View My Trips</span>
+  </div>
+</div>`
+  },
+
+  "PassengerMyTrips": {
+    label: "Passenger — My Trips",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px">
+    <div style="font-size:14px;font-weight:800">My Trips</div>
+  </div>
+  <!-- Tabs -->
+  <div style="display:flex;border-bottom:2px solid #e5e7eb">
+    <span style="flex:1;text-align:center;padding:8px;font-size:12px;font-weight:700;color:#2563eb;border-bottom:2px solid #2563eb;margin-bottom:-2px">Upcoming</span>
+    <span style="flex:1;text-align:center;padding:8px;font-size:12px;color:#9ca3af">Past</span>
+    <span style="flex:1;text-align:center;padding:8px;font-size:12px;color:#9ca3af">Cancelled</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+    ${[
+      {pnr:"HBR8821X",route:"Mumbai → Pune",date:"10 May 2026",bus:"Sharma Travels",seat:"L2",status:"confirmed"},
+      {pnr:"HBR7712A",route:"Pune → Nashik",date:"15 May 2026",bus:"VRL Travels",seat:"U4",status:"confirmed"},
+    ].map(t=>`
+    <div class="wf-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${t.route}</div>
+          <div style="font-size:10px;color:#6b7280">${t.date} · ${t.bus} · Seat ${t.seat}</div>
+        </div>
+        <span class="wf-tag" style="background:#dcfce7;color:#16a34a">${t.status}</span>
+      </div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:8px">PNR: ${t.pnr}</div>
+      <div style="display:flex;gap:6px">
+        <span class="wf-btn outline" style="font-size:10px;padding:4px 10px">Track Bus</span>
+        <span class="wf-btn outline" style="font-size:10px;padding:4px 10px">View Ticket</span>
+        <span class="wf-btn" style="font-size:10px;padding:4px 10px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5">Cancel</span>
+      </div>
+    </div>`).join("")}
+  </div>
+  <div class="wf-nav-bottom">
+    <div class="wf-nav-item"><span>🏠</span>Home</div>
+    <div class="wf-nav-item active"><span>🎫</span>Trips</div>
+    <div class="wf-nav-item"><span>👛</span>Wallet</div>
+    <div class="wf-nav-item"><span>👤</span>Profile</div>
+  </div>
+</div>`
+  },
+
+  "PassengerTracking": {
+    label: "Passenger — Live Tracking",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span><span style="font-size:13px;font-weight:700">Live Tracking</span>
+    <span class="wf-tag" style="background:#dcfce7;color:#16a34a;margin-left:auto">On Time</span>
+  </div>
+  <div class="wf-map" style="height:260px;margin:0;border-radius:0;position:relative">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px">
+      <div style="font-size:28px">🗺️</div>
+      <div style="font-size:12px;font-weight:700;color:#0369a1">Live Map View</div>
+      <div style="font-size:10px;color:#0284c7">Bus location updates every 30s</div>
+    </div>
+    <!-- Bus marker -->
+    <div style="position:absolute;top:40%;left:55%;transform:translate(-50%,-50%);background:#2563eb;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.3)">🚌</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+    <!-- ETA card -->
+    <div class="wf-card" style="background:#eff6ff;border-color:#bfdbfe">
+      <div style="display:flex;justify-content:space-between">
+        <div><div style="font-size:10px;color:#6b7280">Estimated Arrival</div><div style="font-size:20px;font-weight:800;color:#1d4ed8">09:28</div></div>
+        <div><div style="font-size:10px;color:#6b7280">Distance</div><div style="font-size:20px;font-weight:800;color:#1d4ed8">42 km</div></div>
+        <div><div style="font-size:10px;color:#6b7280">Speed</div><div style="font-size:20px;font-weight:800;color:#1d4ed8">72 km/h</div></div>
+      </div>
+    </div>
+    <!-- Stops -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Stops</div>
+      ${[
+        {stop:"Dadar Bus Stand",time:"06:00",done:true},
+        {stop:"Khopoli",time:"07:15",done:true},
+        {stop:"Khalapur Toll",time:"07:45",done:false,current:true},
+        {stop:"Pune Station",time:"09:30",done:false},
+      ].map(s=>`
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${s.current?'background:#2563eb':s.done?'background:#16a34a':'background:#d1d5db'}"></div>
+        <div style="flex:1;font-size:11px;${s.current?'font-weight:700;color:#1d4ed8':s.done?'color:#9ca3af;text-decoration:line-through':'color:#374151'}">${s.stop}</div>
+        <div style="font-size:10px;color:#9ca3af">${s.time}</div>
+      </div>`).join("")}
+    </div>
+  </div>
+</div>`
+  },
+
+  "PassengerCharter": {
+    label: "Passenger — Charter Browse",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px">
+    <div style="font-size:14px;font-weight:800">Charter a Bus 🚌</div>
+    <div style="font-size:10px;color:#6b7280">Book the whole bus for your group</div>
+  </div>
+  <!-- Filters -->
+  <div style="padding:8px 14px;display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid #f3f4f6">
+    ${["All Types","AC","Non-AC","Sleeper","Luxury","Mini"].map((f,i)=>`<span style="padding:4px 10px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap;${i===0?'background:#d97706;color:#fff':'background:#fef3c7;color:#92400e'}">${f}</span>`).join("")}
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    ${[
+      {name:"Volvo 9600 Sleeper",cap:40,type:"Luxury AC Sleeper",rate:"₹18,000/day",op:"VRL Travels",rating:"4.8"},
+      {name:"Tata Starbus AC",cap:35,type:"AC Seater",rate:"₹9,500/day",op:"Sharma Travels",rating:"4.5"},
+      {name:"Ashok Leyland Non-AC",cap:52,type:"Non-AC Seater",rate:"₹6,000/day",op:"KPN Tours",rating:"4.2"},
+    ].map(b=>`
+    <div class="wf-card">
+      <div class="wf-box" style="height:100px;margin-bottom:8px;border-radius:8px">🚌 ${b.name}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:12px;font-weight:700">${b.name}</div>
+          <div style="font-size:10px;color:#6b7280">${b.type} · ${b.cap} seats · ${b.op}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:800;color:#d97706">${b.rate}</div>
+          <div style="font-size:9px;color:#9ca3af">⭐ ${b.rating}</div>
+        </div>
+      </div>
+      <span class="wf-btn amber" style="width:100%;text-align:center;display:block;font-size:11px">View &amp; Book</span>
+    </div>`).join("")}
+  </div>
+</div>`
+  },
+
+  "PassengerWallet": {
+    label: "Passenger — Wallet",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px"><div style="font-size:14px;font-weight:800">My Wallet</div></div>
+  <!-- Balance -->
+  <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:24px 20px;text-align:center">
+    <div style="font-size:11px;opacity:.8;margin-bottom:4px">Available Balance</div>
+    <div style="font-size:32px;font-weight:900;margin-bottom:8px">₹ 1,240</div>
+    <span style="background:rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:11px;font-weight:600">Add Money</span>
+  </div>
+  <!-- Quick actions -->
+  <div style="display:flex;padding:12px;gap:8px;border-bottom:1px solid #e5e7eb">
+    ${["Add ₹500","Add ₹1000","Add ₹2000"].map(a=>`<span class="wf-btn outline" style="flex:1;text-align:center;font-size:10px">${a}</span>`).join("")}
+  </div>
+  <!-- Transactions -->
+  <div style="flex:1;overflow-y:auto;padding:12px">
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">Recent Transactions</div>
+    ${[
+      {desc:"Mumbai → Pune ticket",amt:"-₹650",date:"10 May",type:"debit"},
+      {desc:"Wallet top-up",amt:"+₹1000",date:"8 May",type:"credit"},
+      {desc:"Nashik trip refund",amt:"+₹480",date:"5 May",type:"credit"},
+      {desc:"Pune → Nashik ticket",amt:"-₹480",date:"2 May",type:"debit"},
+    ].map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6">
+      <div style="width:32px;height:32px;border-radius:8px;background:${t.type==='credit'?'#dcfce7':'#fee2e2'};display:flex;align-items:center;justify-content:center;font-size:14px">${t.type==='credit'?'⬇️':'⬆️'}</div>
+      <div style="flex:1"><div style="font-size:11px;font-weight:600">${t.desc}</div><div style="font-size:10px;color:#9ca3af">${t.date}</div></div>
+      <div style="font-size:12px;font-weight:700;${t.type==='credit'?'color:#16a34a':'color:#dc2626'}">${t.amt}</div>
+    </div>`).join("")}
+  </div>
+  <div class="wf-nav-bottom">
+    <div class="wf-nav-item"><span>🏠</span>Home</div>
+    <div class="wf-nav-item"><span>🎫</span>Trips</div>
+    <div class="wf-nav-item active"><span>👛</span>Wallet</div>
+    <div class="wf-nav-item"><span>👤</span>Profile</div>
+  </div>
+</div>`
+  },
+
+  "AuthLogin": {
+    label: "Auth — Passenger Login",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:24px">
+  <div style="font-size:24px;font-weight:900;color:#1d4ed8;margin-bottom:4px">HappyBusRide</div>
+  <div style="font-size:12px;color:#9ca3af;margin-bottom:32px">Sign in to continue</div>
+  <div style="width:100%;max-width:300px">
+    <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px">Mobile Number</div>
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <div style="background:#f3f4f6;border:1.5px solid #d1d5db;border-radius:6px;padding:8px 10px;font-size:12px;color:#374151">+91</div>
+      <div class="wf-input" style="flex:1">Enter your mobile number</div>
+    </div>
+    <span class="wf-btn primary" style="width:100%;text-align:center;display:block;margin-bottom:20px">Send OTP</span>
+    <div style="text-align:center;font-size:11px;color:#9ca3af">
+      By continuing you agree to our <span style="color:#2563eb">Terms</span> &amp; <span style="color:#2563eb">Privacy Policy</span>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:24px;text-align:center">
+    <div style="font-size:11px;color:#9ca3af">Are you an operator or driver?</div>
+    <span style="color:#2563eb;font-size:11px;font-weight:600">Login here →</span>
+  </div>
+</div>`
+  },
+
+  "AuthOTP": {
+    label: "Auth — OTP Verify",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:24px">
+  <div style="font-size:24px;font-weight:900;color:#1d4ed8;margin-bottom:4px">Verify OTP</div>
+  <div style="font-size:12px;color:#6b7280;margin-bottom:4px;text-align:center">Enter the 6-digit OTP sent to</div>
+  <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:28px">+91 99999 00001</div>
+  <!-- OTP inputs -->
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    ${[1,2,3,4,5,6].map((n,i)=>`<div style="width:40px;height:48px;border:${i<4?'2px solid #2563eb':'1.5px solid #d1d5db'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#1e293b">${i<4?n:''}</div>`).join("")}
+  </div>
+  <span class="wf-btn primary" style="width:200px;text-align:center;display:block;margin-bottom:16px">Verify OTP</span>
+  <div style="font-size:11px;color:#9ca3af">Didn't receive? <span style="color:#2563eb">Resend in 28s</span></div>
+  <div style="margin-top:8px;font-size:10px;color:#d1d5db">[Dev mode: use 123456]</div>
+</div>`
+  },
+
+  "AuthOperatorLogin": {
+    label: "Auth — Operator Login",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:24px">
+  <div style="font-size:20px;font-weight:900;color:#1e293b;margin-bottom:4px">Operator Portal</div>
+  <div style="font-size:11px;color:#9ca3af;margin-bottom:28px">Sign in to manage your fleet</div>
+  <div style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:12px">
+    ${["Email Address","Password"].map(f=>`
+    <div>
+      <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:5px">${f}</div>
+      <div class="wf-input">${f==="Password"?"••••••••":""}</div>
+    </div>`).join("")}
+    <div style="text-align:right"><span style="font-size:11px;color:#2563eb">Forgot password?</span></div>
+    <span class="wf-btn primary" style="text-align:center;display:block">Sign In</span>
+    <div style="text-align:center;font-size:11px;color:#9ca3af">New operator? <span style="color:#2563eb">Apply here</span></div>
+  </div>
+</div>`
+  },
+
+  "OperatorDashboard": {
+    label: "Operator — Dashboard",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Operator Portal</div>
+    ${[
+      {icon:"📊",label:"Dashboard",active:true},
+      {icon:"🗺️",label:"Routes"},
+      {icon:"📅",label:"Schedules"},
+      {icon:"🚌",label:"Buses"},
+      {icon:"👷",label:"Drivers"},
+      {icon:"🎟️",label:"Live Trips"},
+      {icon:"💰",label:"Fares"},
+      {icon:"💸",label:"Earnings"},
+      {icon:"🚌",label:"Charter"},
+    ].map(i=>`<div class="wf-side-item ${i.active?'active':''}">${i.icon} ${i.label}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">Good morning, Sharma Travels 👋</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Here's your fleet overview for today</div>
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      ${[
+        {label:"Today's Revenue",val:"₹42,800",trend:"+12%",color:"#1d4ed8"},
+        {label:"Active Trips",val:"6",trend:"2 delayed",color:"#d97706"},
+        {label:"Seats Sold",val:"218",trend:"78% fill rate",color:"#16a34a"},
+        {label:"Pending Payouts",val:"₹1.2L",trend:"Next: 15 May",color:"#7c3aed"},
+      ].map(s=>`
+      <div class="wf-stat">
+        <div style="font-size:9px;color:#9ca3af;margin-bottom:4px">${s.label}</div>
+        <div style="font-size:18px;font-weight:800;color:${s.color}">${s.val}</div>
+        <div style="font-size:10px;color:#6b7280">${s.trend}</div>
+      </div>`).join("")}
+    </div>
+    <!-- Live trips -->
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">Live Trips</div>
+    <table class="wf-table" style="margin-bottom:14px">
+      <thead><tr><th>Route</th><th>Bus</th><th>Driver</th><th>Dep</th><th>Status</th><th>Occupancy</th></tr></thead>
+      <tbody>
+        ${[
+          {route:"Mumbai→Pune",bus:"MH12AB1234",driver:"Raju S",dep:"06:00",status:"On Route",occ:"92%"},
+          {route:"Pune→Nashik",bus:"MH12CD5678",driver:"Mohan P",dep:"07:30",status:"Delayed",occ:"78%"},
+          {route:"Mumbai→Goa",bus:"MH12EF9012",driver:"Suresh K",dep:"21:00",status:"Scheduled",occ:"45%"},
+        ].map(t=>`
+        <tr>
+          <td style="font-weight:600">${t.route}</td>
+          <td style="font-size:10px;color:#6b7280">${t.bus}</td>
+          <td>${t.driver}</td>
+          <td>${t.dep}</td>
+          <td><span class="wf-tag" style="${t.status==='On Route'?'background:#dcfce7;color:#16a34a':t.status==='Delayed'?'background:#fef3c7;color:#92400e':'background:#f0f9ff;color:#0369a1'}">${t.status}</span></td>
+          <td style="font-weight:600">${t.occ}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <!-- Quick actions -->
+    <div style="display:flex;gap:8px">
+      <span class="wf-btn primary" style="font-size:11px">+ New Schedule</span>
+      <span class="wf-btn outline" style="font-size:11px">+ New Route</span>
+      <span class="wf-btn outline" style="font-size:11px">+ Add Bus</span>
+    </div>
+  </div>
+</div>`
+  },
+
+  "OperatorOnboarding": {
+    label: "Operator — Onboarding",
+    mobile: false,
+    html: () => `
+<div style="max-width:560px;margin:0 auto;padding:24px">
+  <div style="font-size:16px;font-weight:800;margin-bottom:4px">Operator Onboarding</div>
+  <div style="font-size:11px;color:#9ca3af;margin-bottom:20px">Complete setup to start accepting bookings</div>
+  <!-- Stepper -->
+  <div style="display:flex;align-items:center;gap:0;margin-bottom:24px">
+    ${[
+      {n:1,label:"Basic Info",state:"done"},
+      {n:2,label:"KYC Docs",state:"active"},
+      {n:3,label:"Bank Details",state:"todo"},
+    ].map((s,i)=>`
+    <div style="display:flex;align-items:center;${i<2?'flex:1':''}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div class="wf-step-dot ${s.state}">${s.state==="done"?"✓":s.n}</div>
+        <div style="font-size:9px;color:${s.state==="active"?"#2563eb":s.state==="done"?"#16a34a":"#9ca3af"};font-weight:600;white-space:nowrap">${s.label}</div>
+      </div>
+      ${i<2?`<div style="flex:1;height:2px;background:${s.state==="done"?'#16a34a':'#e5e7eb'};margin:0 8px;margin-bottom:14px"></div>`:``}
+    </div>`).join("")}
+  </div>
+  <!-- KYC form -->
+  <div class="wf-card">
+    <div style="font-size:12px;font-weight:700;margin-bottom:12px">KYC Documents</div>
+    ${[
+      {label:"GST Number",placeholder:"27AABCU9603R1ZX"},
+      {label:"PAN Number",placeholder:"ABCDE1234F"},
+    ].map(f=>`
+    <div style="margin-bottom:10px">
+      <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">${f.label}</div>
+      <div class="wf-input" style="color:#6b7280">${f.placeholder}</div>
+    </div>`).join("")}
+    <!-- Upload boxes -->
+    ${["Upload GST Certificate","Upload Permit / License"].map(u=>`
+    <div style="border:2px dashed #d1d5db;border-radius:8px;padding:16px;text-align:center;margin-bottom:10px;background:#f9fafb">
+      <div style="font-size:16px;margin-bottom:4px">📎</div>
+      <div style="font-size:11px;font-weight:600;color:#374151">${u}</div>
+      <div style="font-size:10px;color:#9ca3af">PDF or image · Max 5MB</div>
+      <span class="wf-btn outline" style="font-size:10px;padding:4px 12px;margin-top:8px;display:inline-block">Choose File</span>
+    </div>`).join("")}
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <span class="wf-btn outline" style="flex:1;text-align:center;font-size:11px">← Back</span>
+      <span class="wf-btn primary" style="flex:1;text-align:center;font-size:11px">Save &amp; Continue →</span>
+    </div>
+  </div>
+</div>`
+  },
+
+  "OperatorRoutes": {
+    label: "Operator — Routes",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Operator Portal</div>
+    ${["📊 Dashboard","🗺️ Routes","📅 Schedules","🚌 Buses","👷 Drivers","🎟️ Live Trips","💰 Fares","💸 Earnings"].map((i,idx)=>`<div class="wf-side-item ${idx===1?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div><div style="font-size:14px;font-weight:800">Routes</div><div style="font-size:11px;color:#9ca3af">4 routes configured</div></div>
+      <span class="wf-btn primary" style="font-size:11px">+ New Route</span>
+    </div>
+    <table class="wf-table">
+      <thead><tr><th>Route Name</th><th>Origin</th><th>Destination</th><th>Stops</th><th>Distance</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${[
+          {name:"MUM-PUN-01",from:"Mumbai",to:"Pune",stops:3,dist:"148 km",status:"Active"},
+          {name:"PUN-NSK-01",from:"Pune",to:"Nashik",stops:2,dist:"212 km",status:"Active"},
+          {name:"MUM-GOA-01",from:"Mumbai",to:"Goa",stops:4,dist:"594 km",status:"Active"},
+          {name:"PUN-AUR-01",from:"Pune",to:"Aurangabad",stops:3,dist:"235 km",status:"Inactive"},
+        ].map(r=>`
+        <tr>
+          <td style="font-weight:600">${r.name}</td>
+          <td>${r.from}</td>
+          <td>${r.to}</td>
+          <td style="color:#6b7280">${r.stops} stops</td>
+          <td style="color:#6b7280">${r.dist}</td>
+          <td><span class="wf-tag" style="${r.status==='Active'?'background:#dcfce7;color:#16a34a':'background:#f3f4f6;color:#6b7280'}">${r.status}</span></td>
+          <td><span style="font-size:11px;color:#2563eb;cursor:default">Edit</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "OperatorSchedules": {
+    label: "Operator — Schedules",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Operator Portal</div>
+    ${["📊 Dashboard","🗺️ Routes","📅 Schedules","🚌 Buses","👷 Drivers","🎟️ Live Trips","💰 Fares","💸 Earnings"].map((i,idx)=>`<div class="wf-side-item ${idx===2?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div><div style="font-size:14px;font-weight:800">Schedules</div><div style="font-size:11px;color:#9ca3af">8 schedules active</div></div>
+      <span class="wf-btn primary" style="font-size:11px">+ New Schedule</span>
+    </div>
+    <table class="wf-table">
+      <thead><tr><th>Route</th><th>Bus</th><th>Departure</th><th>Arrival</th><th>Days</th><th>Fare (min)</th><th>Status</th></tr></thead>
+      <tbody>
+        ${[
+          {route:"MUM-PUN-01",bus:"MH12AB1234",dep:"06:00",arr:"09:30",days:"Mon-Sun",fare:"₹550",status:"Active"},
+          {route:"MUM-PUN-01",bus:"MH12CD5678",dep:"14:00",arr:"17:30",days:"Mon-Sat",fare:"₹480",status:"Active"},
+          {route:"MUM-GOA-01",bus:"MH12EF9012",dep:"21:00",arr:"07:00+1",days:"Fri,Sat,Sun",fare:"₹900",status:"Active"},
+          {route:"PUN-NSK-01",bus:"MH12GH3456",dep:"08:00",arr:"12:30",days:"Mon-Sun",fare:"₹380",status:"Paused"},
+        ].map(s=>`
+        <tr>
+          <td style="font-weight:600">${s.route}</td>
+          <td style="font-size:10px;color:#6b7280">${s.bus}</td>
+          <td>${s.dep}</td>
+          <td>${s.arr}</td>
+          <td style="font-size:10px;color:#6b7280">${s.days}</td>
+          <td style="font-weight:600;color:#1d4ed8">${s.fare}</td>
+          <td><span class="wf-tag" style="${s.status==='Active'?'background:#dcfce7;color:#16a34a':'background:#fef3c7;color:#92400e'}">${s.status}</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "OperatorBuses": {
+    label: "Operator — Buses",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Operator Portal</div>
+    ${["📊 Dashboard","🗺️ Routes","📅 Schedules","🚌 Buses","👷 Drivers","🎟️ Live Trips","💰 Fares","💸 Earnings"].map((i,idx)=>`<div class="wf-side-item ${idx===3?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div><div style="font-size:14px;font-weight:800">Fleet</div><div style="font-size:11px;color:#9ca3af">5 buses registered</div></div>
+      <span class="wf-btn primary" style="font-size:11px">+ Add Bus</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${[
+        {reg:"MH12AB1234",type:"AC Sleeper",cap:40,status:"On Route",fuel:"Diesel"},
+        {reg:"MH12CD5678",type:"AC Seater",cap:42,status:"Available",fuel:"Diesel"},
+        {reg:"MH12EF9012",type:"Luxury",cap:36,status:"Maintenance",fuel:"CNG"},
+        {reg:"MH12GH3456",type:"Non-AC",cap:52,status:"Available",fuel:"Diesel"},
+        {reg:"MH12IJ7890",type:"Mini",cap:20,status:"Available",fuel:"CNG"},
+      ].map(b=>`
+      <div class="wf-card">
+        <div class="wf-box" style="height:60px;margin-bottom:8px;border-radius:6px;font-size:10px">🚌</div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">${b.reg}</div>
+        <div style="font-size:10px;color:#6b7280;margin-bottom:6px">${b.type} · ${b.cap} seats · ${b.fuel}</div>
+        <span class="wf-tag" style="${b.status==='On Route'?'background:#dbeafe;color:#1d4ed8':b.status==='Available'?'background:#dcfce7;color:#16a34a':'background:#fee2e2;color:#dc2626'}">${b.status}</span>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <span class="wf-btn outline" style="flex:1;text-align:center;font-size:9px">Edit</span>
+          <span class="wf-btn outline" style="flex:1;text-align:center;font-size:9px">Layout</span>
+        </div>
+      </div>`).join("")}
+    </div>
+  </div>
+</div>`
+  },
+
+  "OperatorEarnings": {
+    label: "Operator — Earnings",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Operator Portal</div>
+    ${["📊 Dashboard","🗺️ Routes","📅 Schedules","🚌 Buses","👷 Drivers","🎟️ Live Trips","💰 Fares","💸 Earnings"].map((i,idx)=>`<div class="wf-side-item ${idx===7?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:14px">Earnings</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      ${[
+        {label:"This Month",val:"₹3,84,200",sub:"42 trips"},
+        {label:"Last Month",val:"₹3,12,500",sub:"36 trips"},
+        {label:"Pending Payout",val:"₹1,20,000",sub:"Releases 15 May"},
+      ].map(s=>`
+      <div class="wf-stat">
+        <div style="font-size:9px;color:#9ca3af">${s.label}</div>
+        <div style="font-size:18px;font-weight:800;color:#1d4ed8">${s.val}</div>
+        <div style="font-size:10px;color:#6b7280">${s.sub}</div>
+      </div>`).join("")}
+    </div>
+    <!-- Chart placeholder -->
+    <div class="wf-box" style="height:120px;margin-bottom:14px;border-radius:8px;font-size:12px">📈 Monthly Revenue Chart (bar chart)</div>
+    <!-- Payout history -->
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">Payout History</div>
+    <table class="wf-table">
+      <thead><tr><th>Date</th><th>Amount</th><th>Trips</th><th>Status</th><th>Reference</th></tr></thead>
+      <tbody>
+        ${[
+          {date:"1 May 2026",amt:"₹3,12,500",trips:36,status:"Paid",ref:"PAY-20260501"},
+          {date:"1 Apr 2026",amt:"₹2,88,000",trips:31,status:"Paid",ref:"PAY-20260401"},
+        ].map(p=>`
+        <tr>
+          <td>${p.date}</td>
+          <td style="font-weight:600;color:#1d4ed8">${p.amt}</td>
+          <td style="color:#6b7280">${p.trips}</td>
+          <td><span class="wf-tag" style="background:#dcfce7;color:#16a34a">${p.status}</span></td>
+          <td style="font-size:10px;color:#9ca3af">${p.ref}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "DriverDashboard": {
+    label: "Driver — Dashboard",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div style="background:#1e293b;color:#fff;padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:800">Driver App</div>
+        <div style="font-size:10px;opacity:.7">Raju Sharma · MH12AB1234</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="wf-tag" style="background:#16a34a;color:#fff">On Duty</span>
+        <div class="wf-avatar" style="background:#334155;color:#94a3b8">R</div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+    <!-- Today's trip -->
+    <div class="wf-card" style="border-color:#bfdbfe;background:#eff6ff">
+      <div style="font-size:10px;color:#6b7280;margin-bottom:2px">TODAY'S TRIP</div>
+      <div style="font-size:14px;font-weight:800;color:#1d4ed8;margin-bottom:4px">Mumbai → Pune</div>
+      <div style="font-size:11px;color:#374151;margin-bottom:8px">Dep 06:00 · Sharma Travels AC Sleeper</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:10px">
+        ${[["40","Total Passengers"],["38","Boarded"],["8","Stops Left"]].map(([v,l])=>`
+        <div style="background:#fff;border-radius:8px;padding:8px">
+          <div style="font-size:18px;font-weight:800;color:#1d4ed8">${v}</div>
+          <div style="font-size:9px;color:#9ca3af">${l}</div>
+        </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:6px">
+        <span class="wf-btn primary" style="flex:1;text-align:center;font-size:11px">View Trip</span>
+        <span class="wf-btn outline" style="flex:1;text-align:center;font-size:11px">Scan QR</span>
+      </div>
+    </div>
+    <!-- Quick actions -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      ${[
+        {icon:"📷",label:"Scan Ticket",color:"#dbeafe"},
+        {icon:"📍",label:"Update Location",color:"#dcfce7"},
+        {icon:"📋",label:"Attendance",color:"#fef3c7"},
+        {icon:"🚨",label:"Report Issue",color:"#fee2e2"},
+      ].map(a=>`
+      <div style="background:${a.color};border-radius:10px;padding:14px;text-align:center;cursor:default">
+        <div style="font-size:22px;margin-bottom:4px">${a.icon}</div>
+        <div style="font-size:11px;font-weight:600;color:#374151">${a.label}</div>
+      </div>`).join("")}
+    </div>
+    <!-- Next trip -->
+    <div class="wf-card">
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:4px">NEXT TRIP</div>
+      <div style="font-size:12px;font-weight:700">Mumbai → Goa</div>
+      <div style="font-size:10px;color:#6b7280">Tomorrow · Dep 21:00</div>
+    </div>
+  </div>
+  <div class="wf-nav-bottom">
+    <div class="wf-nav-item active"><span>🏠</span>Home</div>
+    <div class="wf-nav-item"><span>🎟️</span>Trips</div>
+    <div class="wf-nav-item"><span>📷</span>Scan</div>
+    <div class="wf-nav-item"><span>📋</span>Attend.</div>
+  </div>
+</div>`
+  },
+
+  "DriverTripDetail": {
+    label: "Driver — Trip Detail",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span><span style="font-size:13px;font-weight:700">Trip Detail</span>
+    <span class="wf-tag" style="background:#dcfce7;color:#16a34a;margin-left:auto">On Route</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+    <div class="wf-card" style="background:#eff6ff;border-color:#bfdbfe">
+      <div style="font-size:13px;font-weight:800;color:#1d4ed8;margin-bottom:4px">Mumbai → Pune</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151">
+        <span>06:00 – 09:30</span><span>Seat count: 40</span>
+      </div>
+    </div>
+    <!-- Stops list -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Stops &amp; Boarding</div>
+      ${[
+        {stop:"Dadar Bus Stand",time:"05:45",board:18,done:true},
+        {stop:"Khopoli",time:"07:15",board:12,done:true,current:true},
+        {stop:"Expressway Dhaba",time:"07:45",board:0,done:false},
+        {stop:"Pune Station",time:"09:30",board:8,done:false},
+      ].map(s=>`
+      <div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f3f4f6">
+        <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${s.current?'background:#2563eb':s.done?'background:#16a34a':'background:#d1d5db'}"></div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:${s.current?'700':'400'};color:${s.current?'#1d4ed8':'#374151'}">${s.stop}</div>
+          <div style="font-size:10px;color:#9ca3af">${s.time}${s.board>0?` · ${s.board} boarding`:''}</div>
+        </div>
+        ${s.current?`<span class="wf-btn primary" style="font-size:9px;padding:4px 8px">Current</span>`:''}
+      </div>`).join("")}
+    </div>
+    <!-- Passenger list -->
+    <div class="wf-card">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px">Passenger List (40)</div>
+      ${[
+        {name:"Rahul Mehta",seat:"L1",status:"Boarded"},
+        {name:"Priya Sharma",seat:"L2",status:"Boarded"},
+        {name:"Ajay Kumar",seat:"U3",status:"Waiting"},
+      ].map(p=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6">
+        <div class="wf-avatar" style="width:28px;height:28px;font-size:10px">${p.name[0]}</div>
+        <div style="flex:1"><div style="font-size:11px;font-weight:600">${p.name}</div><div style="font-size:10px;color:#9ca3af">Seat ${p.seat}</div></div>
+        <span class="wf-tag" style="${p.status==='Boarded'?'background:#dcfce7;color:#16a34a':'background:#fef3c7;color:#92400e'}">${p.status}</span>
+      </div>`).join("")}
+      <span style="font-size:11px;color:#2563eb;display:block;text-align:center;margin-top:8px">View all 40 passengers</span>
+    </div>
+  </div>
+</div>`
+  },
+
+  "DriverScan": {
+    label: "Driver — QR Scanner",
+    mobile: true,
+    html: () => `
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="wf-bar" style="padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <span>←</span><span style="font-size:13px;font-weight:700">Scan Ticket</span>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px">
+    <!-- Camera view -->
+    <div style="width:220px;height:220px;background:#1e293b;border-radius:12px;position:relative;display:flex;align-items:center;justify-content:center">
+      <div style="width:160px;height:160px;border:2px solid #3b82f6;border-radius:8px;position:relative">
+        <div style="position:absolute;top:-2px;left:-2px;width:20px;height:20px;border-top:3px solid #60a5fa;border-left:3px solid #60a5fa;border-radius:2px 0 0 0"></div>
+        <div style="position:absolute;top:-2px;right:-2px;width:20px;height:20px;border-top:3px solid #60a5fa;border-right:3px solid #60a5fa;border-radius:0 2px 0 0"></div>
+        <div style="position:absolute;bottom:-2px;left:-2px;width:20px;height:20px;border-bottom:3px solid #60a5fa;border-left:3px solid #60a5fa;border-radius:0 0 0 2px"></div>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;border-bottom:3px solid #60a5fa;border-right:3px solid #60a5fa;border-radius:0 0 2px 0"></div>
+        <div style="width:100%;height:2px;background:#3b82f6;position:absolute;top:50%;transform:translateY(-50%);opacity:.7"></div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#6b7280;text-align:center">Point camera at passenger QR code</div>
+    <div style="font-size:10px;color:#9ca3af">Or enter PNR manually</div>
+    <div style="display:flex;gap:8px;width:100%">
+      <div class="wf-input" style="flex:1">Enter PNR number</div>
+      <span class="wf-btn primary" style="white-space:nowrap">Verify</span>
+    </div>
+    <!-- Success state preview -->
+    <div style="width:100%;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px;margin-top:4px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:20px">✅</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#15803d">Valid Ticket</div>
+          <div style="font-size:10px;color:#16a34a">Rahul Mehta · Seat L1 · PNR HBR8821X</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`
+  },
+
+  "AdminDashboard": {
+    label: "Admin — Dashboard",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${[
+      {icon:"📊",label:"Dashboard",active:true},
+      {icon:"🏢",label:"Operators"},
+      {icon:"👥",label:"Users"},
+      {icon:"🎫",label:"Bookings"},
+      {icon:"📈",label:"Analytics"},
+      {icon:"💰",label:"Pricing"},
+      {icon:"🚌",label:"Charter"},
+      {icon:"⚖️",label:"Disputes"},
+      {icon:"💸",label:"Refunds"},
+      {icon:"🗄️",label:"Cache"},
+    ].map(i=>`<div class="wf-side-item ${i.active?'active':''}">${i.icon} ${i.label}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">Platform Overview</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Live stats · Last updated just now</div>
+    <!-- Platform stats -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      ${[
+        {label:"Total Bookings Today",val:"1,284",color:"#1d4ed8"},
+        {label:"Active Operators",val:"48",color:"#16a34a"},
+        {label:"Revenue Today",val:"₹8.4L",color:"#d97706"},
+        {label:"Open Disputes",val:"7",color:"#dc2626"},
+      ].map(s=>`
+      <div class="wf-stat">
+        <div style="font-size:9px;color:#9ca3af">${s.label}</div>
+        <div style="font-size:20px;font-weight:800;color:${s.color}">${s.val}</div>
+      </div>`).join("")}
+    </div>
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="wf-box" style="height:130px;border-radius:8px;font-size:12px">📈 Bookings over time (line chart)</div>
+      <div class="wf-box" style="height:130px;border-radius:8px;font-size:12px">🥧 Revenue by route (pie chart)</div>
+    </div>
+    <!-- Recent operators -->
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">Pending Operator Approvals</div>
+    <table class="wf-table">
+      <thead><tr><th>Operator</th><th>Applied</th><th>Buses</th><th>KYC</th><th>Action</th></tr></thead>
+      <tbody>
+        ${[
+          {name:"Krishna Tours",date:"8 May",buses:3,kyc:"Submitted"},
+          {name:"Raj Travels",date:"9 May",buses:5,kyc:"Pending"},
+        ].map(o=>`
+        <tr>
+          <td style="font-weight:600">${o.name}</td>
+          <td style="color:#6b7280">${o.date}</td>
+          <td>${o.buses}</td>
+          <td><span class="wf-tag" style="${o.kyc==='Submitted'?'background:#dbeafe;color:#1d4ed8':'background:#fef3c7;color:#92400e'}">${o.kyc}</span></td>
+          <td>
+            <span class="wf-btn green" style="font-size:10px;padding:3px 8px">Approve</span>
+            <span class="wf-btn red" style="font-size:10px;padding:3px 8px;margin-left:4px">Reject</span>
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "AdminOperators": {
+    label: "Admin — Operators",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${["📊 Dashboard","🏢 Operators","👥 Users","🎫 Bookings","📈 Analytics","💰 Pricing","🚌 Charter","⚖️ Disputes","💸 Refunds","🗄️ Cache"].map((i,idx)=>`<div class="wf-side-item ${idx===1?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div><div style="font-size:14px;font-weight:800">Operators</div><div style="font-size:11px;color:#9ca3af">48 active · 3 pending</div></div>
+      <div style="display:flex;gap:8px">
+        <div class="wf-input" style="width:180px">Search operators...</div>
+        <span class="wf-btn primary" style="font-size:11px">+ New Operator</span>
+      </div>
+    </div>
+    <table class="wf-table">
+      <thead><tr><th>Operator</th><th>Buses</th><th>Routes</th><th>KYC</th><th>Status</th><th>Revenue MTD</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${[
+          {name:"Sharma Travels",buses:5,routes:4,kyc:"Verified",status:"Active",rev:"₹3.8L"},
+          {name:"VRL Travels",buses:12,routes:8,kyc:"Verified",status:"Active",rev:"₹9.1L"},
+          {name:"Krishna Tours",buses:3,routes:2,kyc:"Submitted",status:"Pending",rev:"—"},
+          {name:"Orange Tours",buses:7,routes:5,kyc:"Verified",status:"Suspended",rev:"₹2.1L"},
+        ].map(o=>`
+        <tr>
+          <td style="font-weight:600">${o.name}</td>
+          <td>${o.buses}</td>
+          <td>${o.routes}</td>
+          <td><span class="wf-tag" style="${o.kyc==='Verified'?'background:#dcfce7;color:#16a34a':o.kyc==='Submitted'?'background:#dbeafe;color:#1d4ed8':'background:#fef3c7;color:#92400e'}">${o.kyc}</span></td>
+          <td><span class="wf-tag" style="${o.status==='Active'?'background:#dcfce7;color:#16a34a':o.status==='Pending'?'background:#fef3c7;color:#92400e':'background:#fee2e2;color:#dc2626'}">${o.status}</span></td>
+          <td style="font-weight:600;color:#1d4ed8">${o.rev}</td>
+          <td><span style="font-size:11px;color:#2563eb;cursor:default">View</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "AdminBookings": {
+    label: "Admin — Bookings",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${["📊 Dashboard","🏢 Operators","👥 Users","🎫 Bookings","📈 Analytics","💰 Pricing","🚌 Charter","⚖️ Disputes","💸 Refunds","🗄️ Cache"].map((i,idx)=>`<div class="wf-side-item ${idx===3?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px">Bookings</div>
+    <!-- Filters -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="wf-input" style="width:160px">Search PNR / name...</div>
+      <select style="border:1.5px solid #d1d5db;border-radius:6px;padding:7px;font-size:11px"><option>All Status</option></select>
+      <select style="border:1.5px solid #d1d5db;border-radius:6px;padding:7px;font-size:11px"><option>All Operators</option></select>
+      <div class="wf-input" style="width:120px">From date</div>
+      <div class="wf-input" style="width:120px">To date</div>
+    </div>
+    <table class="wf-table">
+      <thead><tr><th>PNR</th><th>Passenger</th><th>Route</th><th>Date</th><th>Operator</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>
+        ${[
+          {pnr:"HBR8821X",pax:"Rahul Mehta",route:"MUM→PUN",date:"10 May",op:"Sharma",amt:"₹650",st:"Confirmed"},
+          {pnr:"HBR7712A",pax:"Priya Sharma",route:"PUN→NSK",date:"15 May",op:"VRL",amt:"₹480",st:"Confirmed"},
+          {pnr:"HBR6601B",pax:"Ajay Kumar",route:"MUM→GOA",date:"12 May",op:"Sharma",amt:"₹1,200",st:"Cancelled"},
+          {pnr:"HBR5500C",pax:"Sunita Patel",route:"MUM→PUN",date:"10 May",op:"Orange",amt:"₹350",st:"Refunded"},
+        ].map(b=>`
+        <tr>
+          <td style="font-weight:600;color:#1d4ed8">${b.pnr}</td>
+          <td>${b.pax}</td>
+          <td>${b.route}</td>
+          <td style="color:#6b7280">${b.date}</td>
+          <td style="color:#6b7280">${b.op}</td>
+          <td style="font-weight:600">${b.amt}</td>
+          <td><span class="wf-tag" style="${b.st==='Confirmed'?'background:#dcfce7;color:#16a34a':b.st==='Cancelled'?'background:#fee2e2;color:#dc2626':'background:#fef3c7;color:#92400e'}">${b.st}</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "AdminAnalytics": {
+    label: "Admin — Analytics",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${["📊 Dashboard","🏢 Operators","👥 Users","🎫 Bookings","📈 Analytics","💰 Pricing","🚌 Charter","⚖️ Disputes","💸 Refunds","🗄️ Cache"].map((i,idx)=>`<div class="wf-side-item ${idx===4?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:800">Analytics</div>
+      <div style="display:flex;gap:6px">
+        ${["7D","30D","90D","1Y"].map((p,i)=>`<span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;${i===1?'background:#1e293b;color:#fff':'background:#f3f4f6;color:#374151'}">${p}</span>`).join("")}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      ${[
+        {label:"Total Revenue",val:"₹84.2L"},
+        {label:"Total Bookings",val:"38,412"},
+        {label:"Avg Ticket Value",val:"₹548"},
+        {label:"Cancellation Rate",val:"4.2%"},
+      ].map(s=>`
+      <div class="wf-stat">
+        <div style="font-size:9px;color:#9ca3af">${s.label}</div>
+        <div style="font-size:18px;font-weight:800;color:#1d4ed8">${s.val}</div>
+      </div>`).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="wf-box" style="height:140px;border-radius:8px;font-size:12px">📈 Revenue trend (line chart, 30 days)</div>
+      <div class="wf-box" style="height:140px;border-radius:8px;font-size:12px">📊 Bookings by day of week (bar)</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="wf-box" style="height:110px;border-radius:8px;font-size:12px">🗺️ Top 10 routes by revenue</div>
+      <div class="wf-box" style="height:110px;border-radius:8px;font-size:12px">🏆 Top operators by bookings</div>
+    </div>
+  </div>
+</div>`
+  },
+
+  "AdminDisputes": {
+    label: "Admin — Disputes",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${["📊 Dashboard","🏢 Operators","👥 Users","🎫 Bookings","📈 Analytics","💰 Pricing","🚌 Charter","⚖️ Disputes","💸 Refunds","🗄️ Cache"].map((i,idx)=>`<div class="wf-side-item ${idx===7?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">Disputes</div>
+    <div style="font-size:11px;color:#dc2626;margin-bottom:12px">7 open disputes require attention</div>
+    <table class="wf-table">
+      <thead><tr><th>Case #</th><th>Passenger</th><th>PNR</th><th>Reason</th><th>Amount</th><th>Opened</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        ${[
+          {id:"DSP-001",pax:"Rahul M",pnr:"HBR6601B",reason:"Bus cancelled",amt:"₹1,200",date:"9 May",st:"Open"},
+          {id:"DSP-002",pax:"Sunita P",pnr:"HBR5500C",reason:"Seat not as booked",amt:"₹350",date:"8 May",st:"Under Review"},
+          {id:"DSP-003",pax:"Amit K",pnr:"HBR4400D",reason:"Driver rude",amt:"—",date:"7 May",st:"Resolved"},
+        ].map(d=>`
+        <tr>
+          <td style="font-weight:600">${d.id}</td>
+          <td>${d.pax}</td>
+          <td style="color:#1d4ed8">${d.pnr}</td>
+          <td style="color:#6b7280">${d.reason}</td>
+          <td>${d.amt}</td>
+          <td style="color:#9ca3af">${d.date}</td>
+          <td><span class="wf-tag" style="${d.st==='Open'?'background:#fee2e2;color:#dc2626':d.st==='Under Review'?'background:#fef3c7;color:#92400e':'background:#dcfce7;color:#16a34a'}">${d.st}</span></td>
+          <td><span style="font-size:11px;color:#2563eb;cursor:default">Review</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+
+  "AdminRefunds": {
+    label: "Admin — Refunds",
+    mobile: false,
+    html: () => `
+<div class="wf-sidebar-layout" style="height:100%">
+  <div class="wf-side-nav">
+    <div style="padding:12px 14px;font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px">Admin Panel</div>
+    ${["📊 Dashboard","🏢 Operators","👥 Users","🎫 Bookings","📈 Analytics","💰 Pricing","🚌 Charter","⚖️ Disputes","💸 Refunds","🗄️ Cache"].map((i,idx)=>`<div class="wf-side-item ${idx===8?'active':''}">${i}</div>`).join("")}
+  </div>
+  <div class="wf-main-content">
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">Refund Queue</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:12px">12 pending · ₹24,800 total</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      ${["All","Pending","Processing","Completed"].map((f,i)=>`<span style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;${i===0?'background:#1e293b;color:#fff':'background:#f3f4f6;color:#374151'}">${f}</span>`).join("")}
+    </div>
+    <table class="wf-table">
+      <thead><tr><th>PNR</th><th>Passenger</th><th>Reason</th><th>Amount</th><th>Requested</th><th>Method</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        ${[
+          {pnr:"HBR6601B",pax:"Ajay Kumar",reason:"Cancellation",amt:"₹1,080",date:"9 May",method:"Original",st:"Pending"},
+          {pnr:"HBR5500C",pax:"Sunita Patel",reason:"Dispute resolved",amt:"₹350",date:"8 May",method:"Wallet",st:"Processing"},
+          {pnr:"HBR3300E",pax:"Meera Joshi",reason:"Schedule change",amt:"₹650",date:"7 May",method:"Original",st:"Completed"},
+        ].map(r=>`
+        <tr>
+          <td style="color:#1d4ed8;font-weight:600">${r.pnr}</td>
+          <td>${r.pax}</td>
+          <td style="color:#6b7280">${r.reason}</td>
+          <td style="font-weight:700">${r.amt}</td>
+          <td style="color:#9ca3af">${r.date}</td>
+          <td style="font-size:10px">${r.method}</td>
+          <td><span class="wf-tag" style="${r.st==='Pending'?'background:#fef3c7;color:#92400e':r.st==='Processing'?'background:#dbeafe;color:#1d4ed8':'background:#dcfce7;color:#16a34a'}">${r.st}</span></td>
+          <td>${r.st==='Pending'?`<span class="wf-btn green" style="font-size:10px;padding:3px 8px">Approve</span>`:'—'}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</div>`
+  },
+};
+
+// Build sidebar nav
+const GROUPS = [
+  {label:"Passenger", keys:["Landing","PassengerSearch","PassengerSeatSelect","PassengerBookingReview","PassengerPayment","PassengerSuccess","PassengerMyTrips","PassengerTracking","PassengerCharter","PassengerWallet"]},
+  {label:"Auth", keys:["AuthLogin","AuthOTP","AuthOperatorLogin"]},
+  {label:"Operator", keys:["OperatorDashboard","OperatorOnboarding","OperatorRoutes","OperatorSchedules","OperatorBuses","OperatorEarnings"]},
+  {label:"Driver", keys:["DriverDashboard","DriverTripDetail","DriverScan"]},
+  {label:"Admin", keys:["AdminDashboard","AdminOperators","AdminBookings","AdminAnalytics","AdminDisputes","AdminRefunds"]},
+];
+
+const nav = document.getElementById("nav");
+GROUPS.forEach(g => {
+  const gl = document.createElement("div");
+  gl.className = "group-label";
+  gl.textContent = g.label;
+  nav.appendChild(gl);
+  g.keys.forEach(k => {
+    const s = SCREENS[k];
+    if (!s) return;
+    const btn = document.createElement("button");
+    btn.className = "screen-btn";
+    btn.dataset.key = k;
+    btn.textContent = s.label;
+    btn.onclick = () => showScreen(k);
+    nav.appendChild(btn);
+  });
+});
+
+function showScreen(key) {
+  const s = SCREENS[key];
+  if (!s) return;
+  document.querySelectorAll(".screen-btn").forEach(b => b.classList.toggle("active", b.dataset.key === key));
+  document.getElementById("screen-label").textContent = s.label;
+  const host = document.getElementById("screen-host");
+  const isMobile = s.mobile !== false;
+  host.innerHTML = `<div class="device ${isMobile ? "" : "desktop"}">${s.html()}</div>`;
+}
+
+// Show first screen on load
+showScreen("Landing");
+</script>
+</body>
+</html>

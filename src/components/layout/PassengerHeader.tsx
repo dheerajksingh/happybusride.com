@@ -57,7 +57,7 @@ export function PassengerHeader({ activeService }: PassengerHeaderProps) {
                 {s.label}
                 {isCorporate && (
                   <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600 leading-none">
-                    Soon
+                    New
                   </span>
                 )}
               </Link>

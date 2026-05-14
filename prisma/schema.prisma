@@ -16,6 +16,24 @@ enum UserRole {
   OPERATOR
   DRIVER
   ADMIN
+  CORPORATE
+}
+
+enum CorporateRequestStatus {
+  DRAFT
+  SUBMITTED
+  QUOTED
+  ACCEPTED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
 }
 
 enum BusType {
@@ -131,17 +149,19 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  passenger   PassengerProfile?
-  operator    Operator?
-  driver      Driver?
-  admin       AdminProfile?
-  sessions    Session[]
-  otpRequests OtpRequest[]
-  bookings        Booking[]
-  reviews         Review[]
-  disputes        Dispute[]         @relation("RaisedByUser")
-  wallet          WalletTransaction[]
-  charterBookings CharterBooking[]
+  passenger        PassengerProfile?
+  operator         Operator?
+  driver           Driver?
+  admin            AdminProfile?
+  corporateProfile CorporateProfile?
+  sessions         Session[]
+  otpRequests      OtpRequest[]
+  bookings             Booking[]
+  reviews              Review[]
+  disputes             Dispute[]         @relation("RaisedByUser")
+  wallet               WalletTransaction[]
+  charterBookings      CharterBooking[]
+  corporateMessages    CorporateChatMessage[]
 
   @@map("users")
 }
@@ -237,10 +257,11 @@ model Operator {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  buses    Bus[]
-  routes   Route[]
-  drivers  Driver[]
-  earnings OperatorEarning[]
+  buses          Bus[]
+  routes         Route[]
+  drivers        Driver[]
+  earnings       OperatorEarning[]
+  corporateBids  CorporateOperatorBid[]
 
   @@map("operators")
 }
@@ -765,4 +786,176 @@ model CommissionRule {
   updatedAt     DateTime @updatedAt
 
   @@map("commission_rules")
+}
+
+// ============================================================
+// CORPORATE CHARTER
+// ============================================================
+
+model CorporateCompany {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  state       String
+  gstNumber   String?
+  website     String?
+  phone       String   @unique
+  email       String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users    CorporateProfile[]
+  requests CorporateCharterRequest[]
+
+  @@map("corporate_companies")
+}
+
+model CorporateProfile {
+  id        String           @id @default(cuid())
+  userId    String           @unique
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   CorporateCompany @relation(fields: [companyId], references: [id])
+  position  String?
+
+  @@map("corporate_profiles")
+}
+
+model CorporateCharterRequest {
+  id              String                 @id @default(cuid())
+  companyId       String
+  company         CorporateCompany       @relation(fields: [companyId], references: [id])
+  createdById     String
+  city            String
+  state           String
+  busType         BusType?
+  seatCapacityMin Int?
+  hasAc           Boolean                @default(false)
+  hasWifi         Boolean                @default(false)
+  officeAddress   String
+  officeLat       Decimal?               @db.Decimal(10, 7)
+  officeLng       Decimal?               @db.Decimal(10, 7)
+  arrivalTime     String
+  departureTime   String
+  maxTravelMins   Int?
+  clusterRadiusKm Decimal?               @db.Decimal(5, 2)
+  startDate       DateTime               @db.Date
+  status          CorporateRequestStatus @default(DRAFT)
+  estimatedKm     Decimal?               @db.Decimal(10, 2)
+  suggestedPrice  Decimal?               @db.Decimal(10, 2)
+  notes           String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  employees CorporateEmployee[]
+  routes    CorporateRoute[]
+  bids      CorporateOperatorBid[]
+  messages  CorporateChatMessage[]
+
+  @@index([companyId])
+  @@map("corporate_charter_requests")
+}
+
+model CorporateEmployee {
+  id        String                  @id @default(cuid())
+  requestId String
+  request   CorporateCharterRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  name      String
+  address   String
+  latitude  Decimal?                @db.Decimal(10, 7)
+  longitude Decimal?                @db.Decimal(10, 7)
+  phone     String?
+
+  absences EmployeeAbsence[]
+
+  @@index([requestId])
+  @@map("corporate_employees")
+}
+
+model CorporateRoute {
+  id           String                  @id @default(cuid())
+  requestId    String
+  request      CorporateCharterRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  name         String
+  distanceKm   Decimal                 @db.Decimal(10, 2)
+  durationMins Int
+
+  stops CorporateRouteStop[]
+
+  @@map("corporate_routes")
+}
+
+model CorporateRouteStop {
+  id            String         @id @default(cuid())
+  routeId       String
+  route         CorporateRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stopOrder     Int
+  address       String
+  latitude      Decimal?       @db.Decimal(10, 7)
+  longitude     Decimal?       @db.Decimal(10, 7)
+  employeeCount Int            @default(0)
+  pickupTime    String?
+
+  @@unique([routeId, stopOrder])
+  @@map("corporate_route_stops")
+}
+
+model CorporateOperatorBid {
+  id          String                  @id @default(cuid())
+  requestId   String
+  request     CorporateCharterRequest @relation(fields: [requestId], references: [id])
+  operatorId  String
+  operator    Operator                @relation(fields: [operatorId], references: [id])
+  status      BidStatus               @default(PENDING)
+  quoteAmount Decimal?                @db.Decimal(10, 2)
+  quoteNote   String?
+  quotedAt    DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([requestId, operatorId])
+  @@map("corporate_operator_bids")
+}
+
+model CorporateChatMessage {
+  id         String                  @id @default(cuid())
+  requestId  String
+  request    CorporateCharterRequest @relation(fields: [requestId], references: [id])
+  senderId   String
+  sender     User                    @relation(fields: [senderId], references: [id])
+  senderRole String
+  message    String
+  createdAt  DateTime                @default(now())
+
+  @@index([requestId])
+  @@map("corporate_chat_messages")
+}
+
+model EmployeeAbsence {
+  id         String            @id @default(cuid())
+  employeeId String
+  employee   CorporateEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime          @db.Date
+  note       String?
+  createdAt  DateTime          @default(now())
+
+  @@unique([employeeId, date])
+  @@map("employee_absences")
+}
+
+model CorporatePricingRule {
+  id        String   @id @default(cuid())
+  city      String
+  state     String?
+  busType   BusType?
+  timeSlot  String?
+  ratePerKm Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("corporate_pricing_rules")
 }

@@ -1,18 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix leaflet default icon issue with webpack
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+import { useState, useEffect, useRef, useCallback } from "react";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
 export interface Waypoint {
   lat: number;
@@ -26,128 +15,204 @@ interface MapPickerProps {
   onDistanceCalculated: (km: number) => void;
 }
 
-function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      onClick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
-
-function GeolocationController() {
-  const map = useMap();
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        map.setView([pos.coords.latitude, pos.coords.longitude], 13);
-      },
-      () => {
-        // Permission denied or unavailable — fly to Delhi at street level
-        map.setView([28.6139, 77.2090], 12);
-      },
-      { timeout: 5000 }
-    );
-  }, [map]);
-  return null;
-}
-
 export default function MapPicker({ waypoints, onWaypointsChange, onDistanceCalculated }: MapPickerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
+  // Stable refs so click/calculate closures always see current values
+  const waypointsRef = useRef(waypoints);
+  const onChangeRef = useRef(onWaypointsChange);
+  const onDistRef = useRef(onDistanceCalculated);
+  useEffect(() => { waypointsRef.current = waypoints; }, [waypoints]);
+  useEffect(() => { onChangeRef.current = onWaypointsChange; }, [onWaypointsChange]);
+  useEffect(() => { onDistRef.current = onDistanceCalculated; }, [onDistanceCalculated]);
+
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState("");
-  // Road geometry returned by OSRM — array of [lat, lng] pairs
-  const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const [routeShown, setRouteShown] = useState(false);
 
-  const handleMapClick = useCallback(
-    (lat: number, lng: number) => {
-      const label = waypoints.length === 0 ? "Start" : waypoints.length === 1 ? "End" : `Stop ${waypoints.length}`;
-      onWaypointsChange([...waypoints, { lat, lng, label }]);
-      // Clear stale route when waypoints change
-      setRoutePath([]);
-    },
-    [waypoints, onWaypointsChange]
-  );
+  // Initialise map once
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    setOptions({ key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "", v: "weekly" });
+
+    importLibrary("maps").then((mapsLib) => {
+      const { Map, Marker, Polyline } = mapsLib as any;
+
+      const map = new Map(containerRef.current!, {
+        center: { lat: 20.5937, lng: 78.9629 },
+        zoom: 5,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+      mapRef.current = map;
+
+      // Try to center on user's location
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => map.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => map.setCenter({ lat: 28.6139, lng: 77.209 }),
+        { timeout: 5000 }
+      );
+
+      // Click to add waypoints
+      map.addListener("click", (e: any) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        const current = waypointsRef.current;
+        const label =
+          current.length === 0 ? "Start" :
+          current.length === 1 ? "End" :
+          `Stop ${current.length}`;
+        onChangeRef.current([...current, { lat, lng, label }]);
+        polylineRef.current?.setMap(null);
+        polylineRef.current = null;
+        setRouteShown(false);
+      });
+
+      // Store constructors for use in marker/polyline sync
+      (mapRef.current as any).__gmaps = { Marker, Polyline };
+    });
+
+    return () => { mapRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync markers whenever waypoints change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const { Marker } = (map as any).__gmaps ?? {};
+    if (!Marker) return;
+
+    // Remove old markers
+    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current = [];
+
+    // Remove old preview polyline
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+
+    // Add new markers
+    waypoints.forEach((wp, i) => {
+      const isFirst = i === 0;
+      const isLast = i === waypoints.length - 1 && waypoints.length > 1;
+      const color = isFirst ? "#16a34a" : isLast ? "#dc2626" : "#2563eb";
+      const label = wp.label ?? `${i + 1}`;
+
+      const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+        <circle cx="14" cy="14" r="13" fill="${color}" stroke="white" stroke-width="2"/>
+        <text x="14" y="19" text-anchor="middle" font-size="11" font-weight="bold" fill="white" font-family="system-ui">${label.length > 3 ? i + 1 : label}</text>
+      </svg>`;
+
+      const marker = new Marker({
+        position: { lat: wp.lat, lng: wp.lng },
+        map,
+        title: wp.label ?? `Point ${i + 1}`,
+        icon: {
+          url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svgIcon),
+          scaledSize: new (window as any).google.maps.Size(28, 28),
+          anchor: new (window as any).google.maps.Point(14, 14),
+        },
+      });
+      markersRef.current.push(marker);
+    });
+
+    // Draw dashed preview line if route not yet calculated
+    if (!routeShown && waypoints.length >= 2) {
+      const { Polyline } = (map as any).__gmaps;
+      const preview = new Polyline({
+        path: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })),
+        map,
+        strokeColor: "#94a3b8",
+        strokeOpacity: 0,
+        strokeWeight: 2,
+        icons: [{
+          icon: { path: "M 0,-1 0,1", strokeOpacity: 0.6, scale: 3, strokeColor: "#94a3b8" },
+          offset: "0",
+          repeat: "12px",
+        }],
+      });
+      polylineRef.current = preview;
+    }
+  }, [waypoints, routeShown]);
 
   const removeWaypoint = (index: number) => {
-    onWaypointsChange(waypoints.filter((_, i) => i !== index));
-    setRoutePath([]);
+    onChangeRef.current(waypoints.filter((_, i) => i !== index));
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+    setRouteShown(false);
   };
 
-  const calculateDistance = async () => {
+  const calculateDistance = useCallback(async () => {
     if (waypoints.length < 2) {
       setError("Add at least 2 waypoints to calculate distance.");
       return;
     }
     setCalculating(true);
     setError("");
-    setRoutePath([]);
+
     try {
-      const coords = waypoints.map((w) => `${w.lng},${w.lat}`).join(";");
-      const res = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-      );
+      const res = await fetch("/api/charter/route-distance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })) }),
+      });
       const data = await res.json();
-      if (data.code !== "Ok" || !data.routes?.[0]) {
-        setError("Could not calculate route. Try different points.");
+
+      if (!res.ok) {
+        setError(data.error ?? "Could not calculate route. Try different points.");
         return;
       }
-      const distanceKm = parseFloat((data.routes[0].distance / 1000).toFixed(1));
-      onDistanceCalculated(distanceKm);
 
-      // GeoJSON coords are [lng, lat] — flip to [lat, lng] for Leaflet
-      const coords2d: [number, number][] = data.routes[0].geometry.coordinates.map(
-        ([lng, lat]: [number, number]) => [lat, lng]
-      );
-      setRoutePath(coords2d);
+      // Draw road polyline on map
+      const map = mapRef.current;
+      if (map && (map as any).__gmaps) {
+        const { Polyline } = (map as any).__gmaps;
+        polylineRef.current?.setMap(null);
+        const roadLine = new Polyline({
+          path: (data.polyline as [number, number][]).map(([lat, lng]) => ({ lat, lng })),
+          map,
+          strokeColor: "#2563eb",
+          strokeOpacity: 0.85,
+          strokeWeight: 4,
+        });
+        polylineRef.current = roadLine;
+        setRouteShown(true);
+      }
+
+      onDistRef.current(data.distanceKm);
     } catch {
-      setError("Failed to reach routing service. Enter km manually.");
+      setError("Failed to calculate route. Please try again.");
     } finally {
       setCalculating(false);
     }
-  };
+  }, [waypoints]);
 
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-xl border border-gray-200" style={{ height: 360 }}>
-        <MapContainer
-          center={[20.5937, 78.9629]}
-          zoom={5}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            subdomains="abcd"
-            maxZoom={19}
-          />
-          <GeolocationController />
-          <ClickHandler onClick={handleMapClick} />
-          {waypoints.map((wp, i) => (
-            <Marker key={i} position={[wp.lat, wp.lng]} />
-          ))}
-          {/* Road route from OSRM (shown after Calculate Distance) */}
-          {routePath.length >= 2 && (
-            <Polyline positions={routePath} color="#2563eb" weight={4} opacity={0.85} />
-          )}
-          {/* Dashed straight-line preview before route is calculated */}
-          {routePath.length === 0 && waypoints.length >= 2 && (
-            <Polyline
-              positions={waypoints.map((w) => [w.lat, w.lng] as [number, number])}
-              color="#94a3b8"
-              weight={2}
-              dashArray="6 6"
-            />
-          )}
-        </MapContainer>
+        <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
       </div>
 
-      <p className="text-xs text-gray-500">Click on the map to add waypoints. First = pickup, last = drop.</p>
+      <p className="text-xs text-gray-500">
+        Click on the map to add waypoints.
+        <span className="ml-1 inline-flex gap-3">
+          <span>🟢 Start</span>
+          <span>🔵 Stops</span>
+          <span>🔴 End</span>
+        </span>
+      </p>
 
       {waypoints.length > 0 && (
         <div className="space-y-1">
           {waypoints.map((wp, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
+            <div
+              key={i}
+              className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
+            >
               <span className="text-gray-700">
                 <span className="mr-2 font-medium">{wp.label ?? `Point ${i + 1}`}</span>
                 <span className="text-xs text-gray-400">
@@ -174,7 +239,7 @@ export default function MapPicker({ waypoints, onWaypointsChange, onDistanceCalc
         disabled={waypoints.length < 2 || calculating}
         className="w-full rounded-lg border border-blue-300 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
       >
-        {calculating ? "Calculating road route..." : "Calculate Distance"}
+        {calculating ? "Calculating road route…" : "Calculate Distance via Google Maps"}
       </button>
     </div>
   );
