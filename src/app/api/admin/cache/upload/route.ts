@@ -53,30 +53,36 @@ async function handleCities(rows: Record<string, string>[]) {
     return true;
   });
 
-  // Upsert each city to DB and collect enriched records
-  const enriched = await Promise.all(
-    unique.map(async (c) => {
-      const city = await prisma.city.upsert({
-        where: { name_state: { name: c.name, state: c.state } },
-        update: {
-          state: c.state,
-          ...(c.latitude !== null ? { latitude: c.latitude } : {}),
-          ...(c.longitude !== null ? { longitude: c.longitude } : {}),
-          ...(c.code ? { code: c.code } : {}),
-        },
-        create: {
-          name: c.name,
-          state: c.state,
-          latitude: c.latitude,
-          longitude: c.longitude,
-          code: c.code,
-          isActive: true,
-        },
-        select: { id: true, name: true, state: true, code: true, latitude: true, longitude: true },
-      });
-      return city;
-    })
-  );
+  // Upsert in batches of 100 to stay within Lambda execution timeout
+  const BATCH = 100;
+  const enriched: { id: string; name: string; state: string; code: string | null; latitude: unknown; longitude: unknown }[] = [];
+
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const batch = unique.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map((c) =>
+        prisma.city.upsert({
+          where: { name_state: { name: c.name, state: c.state } },
+          update: {
+            state: c.state,
+            ...(c.latitude !== null ? { latitude: c.latitude } : {}),
+            ...(c.longitude !== null ? { longitude: c.longitude } : {}),
+            ...(c.code ? { code: c.code } : {}),
+          },
+          create: {
+            name: c.name,
+            state: c.state,
+            latitude: c.latitude,
+            longitude: c.longitude,
+            code: c.code,
+            isActive: true,
+          },
+          select: { id: true, name: true, state: true, code: true, latitude: true, longitude: true },
+        })
+      )
+    );
+    enriched.push(...results);
+  }
 
   return enriched;
 }
