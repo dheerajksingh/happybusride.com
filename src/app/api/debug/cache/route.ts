@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
-import { cacheGet } from "@/lib/cache";
 
 // TEMPORARY: Remove after Redis diagnosis.
 export async function GET() {
   const redis = getRedis();
-
   if (!redis) {
-    return NextResponse.json({ redis: "❌ not connected — UPSTASH env vars missing" });
+    return NextResponse.json({ redis: "NOT_CONNECTED" });
   }
 
-  const t0 = Date.now();
-  const cities = await cacheGet<unknown[]>("cities");
-  const ms = Date.now() - t0;
+  // List every key in Redis
+  const allKeys = await redis.keys("*");
+
+  // For each key get its type and size
+  const keyInfo: Record<string, unknown> = {};
+  for (const k of allKeys.slice(0, 20)) {
+    const val = await redis.get(k);
+    const type = Array.isArray(val) ? `array(${(val as unknown[]).length})`
+                : typeof val === "string" ? `string(${val.length} chars)`
+                : typeof val;
+    keyInfo[k] = type;
+  }
 
   return NextResponse.json({
-    redis: "✅ connected",
-    citiesCache: cities
-      ? `✅ ${cities.length} cities cached (${ms}ms)`
-      : `❌ empty — upload cities CSV via /admin/cache`,
-    sampleCities: Array.isArray(cities) ? cities.slice(0, 3) : null,
+    redis: "CONNECTED",
+    totalKeys: allKeys.length,
+    keys: keyInfo,
   });
 }
