@@ -1,12 +1,12 @@
 /**
  * Generic Redis cache helpers.
- * All keys are namespaced under "cache:" to avoid collisions.
+ * Keys are stored as-is (no namespace prefix) so the key you set
+ * in the admin panel matches exactly what appears in Upstash.
  * All functions degrade gracefully when Redis is unavailable.
  */
 
 import { getRedis } from "./redis";
 
-const NS = "cache:";
 const META_SUFFIX = ":meta";
 
 export interface CacheMeta {
@@ -16,8 +16,8 @@ export interface CacheMeta {
   source: string;
 }
 
-function dataKey(key: string) { return `${NS}${key}`; }
-function metaKey(key: string) { return `${NS}${key}${META_SUFFIX}`; }
+function dataKey(key: string) { return key; }
+function metaKey(key: string) { return `${key}${META_SUFFIX}`; }
 
 /** Get cached data. Returns null on miss or when Redis is unavailable. */
 export async function cacheGet<T>(key: string): Promise<T | null> {
@@ -66,10 +66,8 @@ export async function cacheKeys(): Promise<string[]> {
   try {
     const redis = getRedis();
     if (!redis) return [];
-    const keys = await redis.keys(`${NS}*`);
-    return keys
-      .filter((k) => !k.endsWith(META_SUFFIX))
-      .map((k) => k.slice(NS.length));
+    const keys = await redis.keys(`*`);
+    return keys.filter((k) => !k.endsWith(META_SUFFIX));
   } catch {
     return [];
   }
