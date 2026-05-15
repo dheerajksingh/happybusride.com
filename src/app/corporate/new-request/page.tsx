@@ -165,8 +165,11 @@ export default function NewCorporateRequestPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <Link href="/corporate/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-          <span className="font-bold text-gray-900">New Corporate Charter Request</span>
+          <Link href="/" className="text-xs font-black text-violet-700 hover:opacity-80 mr-1">HappyBusRide</Link>
+          <span className="text-gray-300">/</span>
+          <Link href="/corporate/dashboard" className="text-gray-400 hover:text-gray-600 text-sm">Dashboard</Link>
+          <span className="text-gray-300">/</span>
+          <span className="font-bold text-gray-900 text-sm">New Request</span>
         </div>
       </header>
 

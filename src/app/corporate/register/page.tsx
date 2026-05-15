@@ -62,7 +62,7 @@ export default function CorporateRegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 px-4 py-10">
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mb-1 text-2xl font-black text-violet-700">HappyBusRide</div>
+          <a href="/" className="mb-1 block text-2xl font-black text-violet-700 hover:opacity-80">HappyBusRide</a>
           <div className="text-lg font-bold text-gray-900">Corporate Registration</div>
         </div>
 

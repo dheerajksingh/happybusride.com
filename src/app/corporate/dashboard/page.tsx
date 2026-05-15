@@ -154,7 +154,7 @@ export default function CorporateDashboardPage() {
       <header className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div>
-            <span className="text-xl font-black text-violet-700">HappyBusRide</span>
+            <a href="/" className="text-xl font-black text-violet-700 hover:opacity-80">HappyBusRide</a>
             <span className="ml-2 text-sm text-gray-500">Corporate</span>
           </div>
           <div className="flex items-center gap-3">

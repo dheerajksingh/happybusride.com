@@ -37,7 +37,7 @@ export default function CorporateLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-8 text-center">
-          <div className="mb-2 text-3xl font-black text-violet-700">HappyBusRide</div>
+          <a href="/" className="mb-2 block text-3xl font-black text-violet-700 hover:opacity-80">HappyBusRide</a>
           <div className="text-lg font-bold text-gray-900">Corporate Portal</div>
           <p className="mt-1 text-sm text-gray-500">Sign in to manage your employee commute</p>
         </div>
