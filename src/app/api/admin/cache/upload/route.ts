@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cacheSet } from "@/lib/cache";
+import { Prisma } from "@prisma/client";
 
 // ── CSV parser ───────────────────────────────────────────────────────────────
 
@@ -53,36 +54,32 @@ async function handleCities(rows: Record<string, string>[]) {
     return true;
   });
 
-  // Upsert in batches of 100 to stay within Lambda execution timeout
-  const BATCH = 100;
-  const enriched: { id: string; name: string; state: string; code: string | null; latitude: unknown; longitude: unknown }[] = [];
-
-  for (let i = 0; i < unique.length; i += BATCH) {
-    const batch = unique.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map((c) =>
-        prisma.city.upsert({
-          where: { name_state: { name: c.name, state: c.state } },
-          update: {
-            state: c.state,
-            ...(c.latitude !== null ? { latitude: c.latitude } : {}),
-            ...(c.longitude !== null ? { longitude: c.longitude } : {}),
-            ...(c.code ? { code: c.code } : {}),
-          },
-          create: {
-            name: c.name,
-            state: c.state,
-            latitude: c.latitude,
-            longitude: c.longitude,
-            code: c.code,
-            isActive: true,
-          },
-          select: { id: true, name: true, state: true, code: true, latitude: true, longitude: true },
-        })
-      )
-    );
-    enriched.push(...results);
+  // Bulk upsert using raw SQL — single query per chunk, no connection pool pressure.
+  // Individual Prisma upserts (even batched) exhaust the 5-connection Lambda pool.
+  const CHUNK = 200;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK);
+    await prisma.$executeRaw`
+      INSERT INTO cities (id, name, state, latitude, longitude, code, "isActive", "createdAt", "updatedAt")
+      VALUES ${Prisma.join(
+        chunk.map((c) =>
+          Prisma.sql`(gen_random_uuid(), ${c.name}, ${c.state}, ${c.latitude}, ${c.longitude}, ${c.code}, true, NOW(), NOW())`
+        )
+      )}
+      ON CONFLICT (name, state) DO UPDATE SET
+        latitude  = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        code      = EXCLUDED.code,
+        "updatedAt" = NOW()
+    `;
   }
+
+  // Fetch all enriched records in one query to return IDs
+  const enriched = await prisma.city.findMany({
+    where: { name: { in: unique.map((c) => c.name) } },
+    select: { id: true, name: true, state: true, code: true, latitude: true, longitude: true },
+    orderBy: { name: "asc" },
+  });
 
   return enriched;
 }

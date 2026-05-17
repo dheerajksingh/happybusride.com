@@ -134,7 +134,10 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
           <h2 className="mb-4 font-semibold text-gray-900">Select Your Seats</h2>
           <SeatMap
             seats={data.seats}
-            layoutConfig={data.bus.layoutConfig}
+            layoutConfig={data.bus.layoutConfig ?? {
+              rows: Math.max(...data.seats.map((s) => s.row), 10),
+              columns: [...new Set(data.seats.map((s) => s.column))].sort(),
+            }}
             selectedIds={selected}
             onToggle={handleToggle}
             currentUserId={session?.user?.id}

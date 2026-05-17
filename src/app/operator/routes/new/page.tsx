@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-
-type City = { id: string; name: string; state: string };
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
 
 interface Stop {
   cityId: string;
+  cityName: string;
   stopName: string;
   stopOrder: number;
   arrivalOffset?: number;
@@ -18,28 +18,23 @@ interface Stop {
 
 export default function NewRoutePage() {
   const router = useRouter();
-  const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    fromCityId: "",
-    toCityId: "",
+    fromCityId: "", fromCityName: "",
+    toCityId: "", toCityName: "",
     distanceKm: "",
     durationMins: "",
   });
   const [stops, setStops] = useState<Stop[]>([
-    { cityId: "", stopName: "", stopOrder: 1, departureOffset: 0 },
-    { cityId: "", stopName: "", stopOrder: 2, arrivalOffset: 0 },
+    { cityId: "", cityName: "", stopName: "", stopOrder: 1, departureOffset: 0 },
+    { cityId: "", cityName: "", stopName: "", stopOrder: 2, arrivalOffset: 0 },
   ]);
-
-  useEffect(() => {
-    fetch("/api/cities").then((r) => r.json()).then(setCities);
-  }, []);
 
   function addStop() {
     setStops((s) => [
       ...s.slice(0, -1),
-      { cityId: "", stopName: "", stopOrder: s.length, arrivalOffset: 0, departureOffset: 0 },
+      { cityId: "", cityName: "", stopName: "", stopOrder: s.length, arrivalOffset: 0, departureOffset: 0 },
       { ...s[s.length - 1], stopOrder: s.length + 1 },
     ]);
   }
@@ -57,11 +52,10 @@ export default function NewRoutePage() {
     e.preventDefault();
     if (!form.fromCityId || !form.toCityId) { alert("Select from and to cities"); return; }
 
-    // Auto-fill first/last stop cities if empty
     const finalStops = stops.map((stop, idx) => ({
       ...stop,
       cityId: idx === 0 && !stop.cityId ? form.fromCityId : idx === stops.length - 1 && !stop.cityId ? form.toCityId : stop.cityId,
-      stopName: stop.stopName || (idx === 0 ? cities.find(c => c.id === form.fromCityId)?.name ?? "" : idx === stops.length - 1 ? cities.find(c => c.id === form.toCityId)?.name ?? "" : stop.stopName),
+      stopName: stop.stopName || (idx === 0 ? form.fromCityName : idx === stops.length - 1 ? form.toCityName : stop.cityName),
     }));
 
     setLoading(true);
@@ -69,7 +63,9 @@ export default function NewRoutePage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
+        name: form.name,
+        fromCityId: form.fromCityId,
+        toCityId: form.toCityId,
         distanceKm: form.distanceKm ? Number(form.distanceKm) : undefined,
         durationMins: form.durationMins ? Number(form.durationMins) : undefined,
         stops: finalStops,
@@ -98,84 +94,49 @@ export default function NewRoutePage() {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">From City</label>
-              <select
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-                value={form.fromCityId}
-                onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
-                required
-              >
-                <option value="">Select city</option>
-                {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">To City</label>
-              <select
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-                value={form.toCityId}
-                onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
-                required
-              >
-                <option value="">Select city</option>
-                {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            <CityAutocomplete
+              label="From City"
+              value={form.fromCityName}
+              onChange={(c) => setForm((f) => ({ ...f, fromCityId: c.id, fromCityName: c.name }))}
+              placeholder="Search city…"
+            />
+            <CityAutocomplete
+              label="To City"
+              value={form.toCityName}
+              onChange={(c) => setForm((f) => ({ ...f, toCityId: c.id, toCityName: c.name }))}
+              placeholder="Search city…"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Distance (km)"
-              type="number"
-              placeholder="e.g. 1400"
-              value={form.distanceKm}
-              onChange={(e) => setForm((f) => ({ ...f, distanceKm: e.target.value }))}
-            />
-            <Input
-              label="Duration (mins)"
-              type="number"
-              placeholder="e.g. 840"
-              value={form.durationMins}
-              onChange={(e) => setForm((f) => ({ ...f, durationMins: e.target.value }))}
-            />
+            <Input label="Distance (km)" type="number" placeholder="e.g. 1400" value={form.distanceKm}
+              onChange={(e) => setForm((f) => ({ ...f, distanceKm: e.target.value }))} />
+            <Input label="Duration (mins)" type="number" placeholder="e.g. 840" value={form.durationMins}
+              onChange={(e) => setForm((f) => ({ ...f, durationMins: e.target.value }))} />
           </div>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Stops</h3>
-            <button
-              type="button"
-              onClick={addStop}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              + Add Stop
-            </button>
+            <button type="button" onClick={addStop} className="text-xs text-blue-600 hover:underline">+ Add Stop</button>
           </div>
           <div className="space-y-3">
             {stops.map((stop, idx) => (
               <div key={idx} className="flex items-start gap-2">
-                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 mt-7">
+                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 mt-6">
                   {idx + 1}
                 </div>
                 <div className="flex-1 grid grid-cols-2 gap-2">
+                  <CityAutocomplete
+                    value={stop.cityName}
+                    onChange={(c) => { updateStop(idx, "cityId", c.id); updateStop(idx, "cityName", c.name); }}
+                    placeholder="Search city…"
+                  />
                   <div>
-                    <label className="mb-1 block text-xs text-gray-500">City</label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                      value={stop.cityId}
-                      onChange={(e) => updateStop(idx, "cityId", e.target.value)}
-                    >
-                      <option value="">Select city</option>
-                      {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-gray-500">Stop Name</label>
                     <input
-                      className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                      placeholder="Bus stand name"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-sm mt-0"
+                      placeholder="Stop name (bus stand)"
                       value={stop.stopName}
                       onChange={(e) => updateStop(idx, "stopName", e.target.value)}
                     />
@@ -183,26 +144,20 @@ export default function NewRoutePage() {
                   {idx > 0 && (
                     <div>
                       <label className="mb-1 block text-xs text-gray-500">Arrival offset (mins)</label>
-                      <input
-                        type="number"
-                        className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                        value={stop.arrivalOffset ?? ""}
-                        onChange={(e) => updateStop(idx, "arrivalOffset", Number(e.target.value))}
-                      />
+                      <input type="number" className="w-full rounded-lg border border-gray-300 p-2 text-sm"
+                        value={stop.arrivalOffset ?? ""} onChange={(e) => updateStop(idx, "arrivalOffset", Number(e.target.value))} />
                     </div>
                   )}
                 </div>
                 {idx > 0 && idx < stops.length - 1 && (
-                  <button type="button" onClick={() => removeStop(idx)} className="mt-7 text-gray-400 hover:text-red-500">×</button>
+                  <button type="button" onClick={() => removeStop(idx)} className="mt-6 text-gray-400 hover:text-red-500">×</button>
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        <Button type="submit" variant="primary" loading={loading} className="w-full">
-          Create Route
-        </Button>
+        <Button type="submit" variant="primary" loading={loading} className="w-full">Create Route</Button>
       </form>
     </div>
   );

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Spinner";
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
 
 type City = { id: string; name: string; state: string };
 
@@ -23,33 +24,32 @@ export default function EditRoutePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [cities, setCities] = useState<City[]>([]);
   const [hasActiveSchedules, setHasActiveSchedules] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    fromCityId: "",
-    toCityId: "",
+    fromCityId: "", fromCityName: "",
+    toCityId: "", toCityName: "",
     distanceKm: "",
     durationMins: "",
   });
   const [stops, setStops] = useState<Stop[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/operator/routes/${routeId}`).then((r) => r.json()),
-      fetch("/api/cities").then((r) => r.json()),
-    ]).then(([route, cityList]) => {
+    fetch(`/api/operator/routes/${routeId}`).then((r) => r.json()).then((route) => {
       if (route && !route.error) {
         setForm({
           name: route.name,
           fromCityId: route.fromCityId,
+          fromCityName: route.fromCity?.name ?? "",
           toCityId: route.toCityId,
+          toCityName: route.toCity?.name ?? "",
           distanceKm: route.distanceKm ? String(route.distanceKm) : "",
           durationMins: route.durationMins ? String(route.durationMins) : "",
         });
         setStops(
           (route.stops ?? []).map((s: any) => ({
             cityId: s.cityId,
+            cityName: s.city?.name ?? "",
             stopName: s.stopName,
             stopOrder: s.stopOrder,
             arrivalOffset: s.arrivalOffset ?? undefined,
@@ -58,7 +58,6 @@ export default function EditRoutePage() {
         );
         setHasActiveSchedules((route._count?.schedules ?? 0) > 0);
       }
-      setCities(Array.isArray(cityList) ? cityList : []);
       setLoading(false);
     });
   }, [routeId]);
@@ -148,38 +147,18 @@ export default function EditRoutePage() {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">From City</label>
-              <select
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-                value={form.fromCityId}
-                onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
-                required
-              >
-                <option value="">Select city</option>
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">To City</label>
-              <select
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-                value={form.toCityId}
-                onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
-                required
-              >
-                <option value="">Select city</option>
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CityAutocomplete
+              label="From City"
+              value={form.fromCityName}
+              onChange={(c) => setForm((f) => ({ ...f, fromCityId: c.id, fromCityName: c.name }))}
+              placeholder="Search city…"
+            />
+            <CityAutocomplete
+              label="To City"
+              value={form.toCityName}
+              onChange={(c) => setForm((f) => ({ ...f, toCityId: c.id, toCityName: c.name }))}
+              placeholder="Search city…"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -218,21 +197,11 @@ export default function EditRoutePage() {
                   {idx + 1}
                 </div>
                 <div className="flex-1 grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs text-gray-500">City</label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                      value={stop.cityId}
-                      onChange={(e) => updateStop(idx, "cityId", e.target.value)}
-                    >
-                      <option value="">Select city</option>
-                      {cities.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <CityAutocomplete
+                    value={(stop as any).cityName ?? stop.cityId}
+                    onChange={(c) => { updateStop(idx, "cityId", c.id); updateStop(idx, "cityName" as any, c.name); }}
+                    placeholder="Search city…"
+                  />
                   <div>
                     <label className="mb-1 block text-xs text-gray-500">Stop Name</label>
                     <input
