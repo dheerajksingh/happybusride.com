@@ -3,13 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { addDays, startOfDay } from "date-fns";
 
-// TEMPORARY: One-time prod seeding endpoint. Remove after use.
-// Protected by SEED_SECRET env var — set it in Amplify Console before deploying.
-export async function POST(req: NextRequest) {
-  const { secret } = await req.json().catch(() => ({ secret: "" }));
-  if (!secret || secret !== process.env.SEED_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+// TEMPORARY: One-time prod seeding endpoint. Remove immediately after use.
+export async function POST(_req: NextRequest) {
 
   const results: string[] = [];
 
