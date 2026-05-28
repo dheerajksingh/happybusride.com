@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SearchForm } from "@/components/passenger/SearchForm";
 import { PassengerHeader } from "@/components/layout/PassengerHeader";
 
-type Service = "tickets" | "charter" | "corporate";
+type Service = "tickets" | "charter"; // | "corporate" — CORPORATE CHARTER moved to separate app
 
 const SERVICES: { id: Service; label: string; icon: string; tagline: string; description: string }[] = [
   {
@@ -22,25 +22,26 @@ const SERVICES: { id: Service; label: string; icon: string; tagline: string; des
     tagline: "The whole bus, your rules",
     description: "Book an entire bus for weddings, pilgrimages, school trips, or group travel. Set your own dates, route, and pickup points.",
   },
-  {
-    id: "corporate",
-    label: "Corporate Charter",
-    icon: "🏢",
-    tagline: "Managed mobility for teams",
-    description: "Dedicated bus fleets for employee commute, offsite travel, and recurring corporate routes — with billing, reporting and SLA guarantees.",
-  },
+  // CORPORATE CHARTER — hidden, moving to separate app
+  // {
+  //   id: "corporate",
+  //   label: "Corporate Charter",
+  //   icon: "🏢",
+  //   tagline: "Managed mobility for teams",
+  //   description: "Dedicated bus fleets for employee commute, offsite travel, and recurring corporate routes — with billing, reporting and SLA guarantees.",
+  // },
 ];
 
 const HERO_GRADIENT: Record<Service, string> = {
   tickets: "from-blue-600 to-blue-800",
   charter: "from-amber-500 to-orange-600",
-  corporate: "from-violet-600 to-purple-800",
+  // corporate: "from-violet-600 to-purple-800",
 };
 
 const TAB_ACTIVE: Record<Service, string> = {
   tickets: "bg-blue-600 text-white shadow",
   charter: "bg-amber-500 text-white shadow",
-  corporate: "bg-violet-600 text-white shadow",
+  // corporate: "bg-violet-600 text-white shadow",
 };
 
 const FEATURES: Record<Service, { icon: string; title: string; desc: string }[]> = {
@@ -56,12 +57,12 @@ const FEATURES: Record<Service, { icon: string; title: string; desc: string }[]>
     { icon: "💰", title: "Pay a Deposit", desc: "Confirm with just a % deposit, pay balance later" },
     { icon: "🚐", title: "All Bus Types", desc: "AC, Non-AC, Sleeper, Luxury — your choice" },
   ],
-  corporate: [
-    { icon: "🔄", title: "Recurring Schedules", desc: "Set up daily/weekly employee commute routes" },
-    { icon: "📊", title: "Usage Reports", desc: "Per-trip billing and detailed travel analytics" },
-    { icon: "🤝", title: "Dedicated Account", desc: "A single point of contact for all your fleet needs" },
-    { icon: "🔒", title: "SLA Guarantee", desc: "Punctuality and safety commitments in writing" },
-  ],
+  // corporate: [
+  //   { icon: "🔄", title: "Recurring Schedules", desc: "Set up daily/weekly employee commute routes" },
+  //   { icon: "📊", title: "Usage Reports", desc: "Per-trip billing and detailed travel analytics" },
+  //   { icon: "🤝", title: "Dedicated Account", desc: "A single point of contact for all your fleet needs" },
+  //   { icon: "🔒", title: "SLA Guarantee", desc: "Punctuality and safety commitments in writing" },
+  // ],
 };
 
 export default function LandingPage() {
@@ -103,7 +104,7 @@ export default function LandingPage() {
           <div className="rounded-2xl bg-white p-6 shadow-2xl">
             {active === "tickets" && <SearchForm />}
             {active === "charter" && <CharterPanel />}
-            {active === "corporate" && <CorporatePanel />}
+            {/* active === "corporate" && <CorporatePanel /> */}
           </div>
         </div>
       </section>
@@ -143,11 +144,11 @@ export default function LandingPage() {
                 <div className="mb-2 text-3xl">{s.icon}</div>
                 <h3 className="mb-1 font-semibold text-gray-900">{s.label}</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">{s.description}</p>
-                {s.id === "corporate" && (
+                {/* s.id === "corporate" && (
                   <span className="mt-2 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
                     New
                   </span>
-                )}
+                ) */}
               </button>
             ))}
           </div>

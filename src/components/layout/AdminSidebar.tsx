@@ -91,7 +91,7 @@ export function AdminSidebar() {
       <div className="border-b border-gray-700 px-4 py-3">
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Service</p>
         <div className="space-y-1.5">
-          {(["tickets", "charter", "corporate"] as Service[]).map((s) => {
+          {(["tickets", "charter" /*, "corporate"*/] as Service[]).map((s) => { // CORPORATE CHARTER — separate app
             const active = service === s;
             return (
               <button

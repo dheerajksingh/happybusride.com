@@ -8,7 +8,7 @@ import { APP_NAME } from "@/constants/config";
 const SERVICE_NAV = [
   { href: "/", label: "Bus Tickets", match: (p: string) => p === "/" || p.startsWith("/search") || p.startsWith("/buses") },
   { href: "/charter", label: "Charter", match: (p: string) => p.startsWith("/charter") },
-  { href: "/#corporate", label: "Corporate", match: () => false },
+  // { href: "/#corporate", label: "Corporate", match: () => false }, // CORPORATE CHARTER — separate app
 ];
 
 interface PassengerHeaderProps {
