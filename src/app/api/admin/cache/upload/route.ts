@@ -60,17 +60,16 @@ async function handleCities(rows: Record<string, string>[]) {
   for (let i = 0; i < unique.length; i += CHUNK) {
     const chunk = unique.slice(i, i + CHUNK);
     await prisma.$executeRaw`
-      INSERT INTO cities (id, name, state, latitude, longitude, code, "isActive", "createdAt", "updatedAt")
+      INSERT INTO cities (id, name, state, latitude, longitude, code, "isActive")
       VALUES ${Prisma.join(
         chunk.map((c) =>
-          Prisma.sql`(gen_random_uuid(), ${c.name}, ${c.state}, ${c.latitude}, ${c.longitude}, ${c.code}, true, NOW(), NOW())`
+          Prisma.sql`(gen_random_uuid()::text, ${c.name}, ${c.state}, ${c.latitude}, ${c.longitude}, ${c.code}, true)`
         )
       )}
       ON CONFLICT (name, state) DO UPDATE SET
         latitude  = EXCLUDED.latitude,
         longitude = EXCLUDED.longitude,
-        code      = EXCLUDED.code,
-        "updatedAt" = NOW()
+        code      = CASE WHEN EXCLUDED.code IS NOT NULL THEN EXCLUDED.code ELSE cities.code END
     `;
   }
 
