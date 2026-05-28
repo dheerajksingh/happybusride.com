@@ -54,6 +54,10 @@ async function handleCities(rows: Record<string, string>[]) {
     return true;
   });
 
+  // Null out all existing codes first so the unique constraint on code
+  // doesn't fire when we reassign codes from the new CSV.
+  await prisma.$executeRaw`UPDATE cities SET code = NULL`;
+
   // Bulk upsert using raw SQL — single query per chunk, no connection pool pressure.
   // Individual Prisma upserts (even batched) exhaust the 5-connection Lambda pool.
   const CHUNK = 200;
