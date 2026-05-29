@@ -53,6 +53,13 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Agent routes (exclude public auth pages)
+  const agentPublic = ["/agent/login", "/agent/register"];
+  if (pathname.startsWith("/agent") && !agentPublic.includes(pathname)) {
+    if (!token) return NextResponse.redirect(new URL("/agent/login", req.url));
+    if (role !== "AGENT") return NextResponse.redirect(new URL("/", req.url));
+  }
+
   // Corporate routes (exclude public auth pages and registration API)
   const corporatePublic = ["/corporate/login", "/corporate/register"];
   const corporateApiPublic = ["/api/corporate/register", "/api/corporate/geocode"];
@@ -93,6 +100,7 @@ export const config = {
     "/driver/:path*",
     "/admin/:path*",
     "/corporate/:path*",
+    "/agent/:path*",
     "/my-trips/:path*",
     "/booking/:path*",
     "/api/operator/:path*",

@@ -17,6 +17,47 @@ enum UserRole {
   DRIVER
   ADMIN
   CORPORATE
+  AGENT
+}
+
+enum AgentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum FreightStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  IN_TRANSIT
+  AT_AGENT
+  AT_DESTINATION
+  DELIVERED
+  CANCELLED
+}
+
+enum FreightLegStatus {
+  PENDING
+  AGENT_RECEIVED
+  LOADED
+  IN_TRANSIT
+  AGENT_AT_NEXT
+  COLLECTED
+}
+
+enum FreightTransferType {
+  ORIGIN
+  INTERIM
+  FINAL
+}
+
+enum AgentEarningType {
+  SEAT_COMMISSION
+  FREIGHT_COMMISSION
+  FREIGHT_HANDLING_ORIGIN
+  FREIGHT_HANDLING_INTERIM
+  FREIGHT_HANDLING_FINAL
 }
 
 enum CorporateRequestStatus {
@@ -154,6 +195,7 @@ model User {
   driver           Driver?
   admin            AdminProfile?
   corporateProfile CorporateProfile?
+  agent            Agent?
   sessions         Session[]
   otpRequests      OtpRequest[]
   bookings             Booking[]
@@ -162,6 +204,7 @@ model User {
   wallet               WalletTransaction[]
   charterBookings      CharterBooking[]
   corporateMessages    CorporateChatMessage[]
+  freightBookingsSent  FreightBooking[]  @relation("FreightSender")
 
   @@map("users")
 }
@@ -262,6 +305,7 @@ model Operator {
   drivers        Driver[]
   earnings       OperatorEarning[]
   corporateBids  CorporateOperatorBid[]
+  agents         AgentOperator[]
 
   @@map("operators")
 }
@@ -393,9 +437,12 @@ model City {
   longitude Decimal? @db.Decimal(10, 7)
   isActive  Boolean  @default(true)
 
-  fromRoutes Route[]     @relation("FromCity")
-  toRoutes   Route[]     @relation("ToCity")
-  stops      RouteStop[]
+  fromRoutes   Route[]          @relation("FromCity")
+  toRoutes     Route[]          @relation("ToCity")
+  stops        RouteStop[]
+  agents       Agent[]
+  freightFrom  FreightBooking[] @relation("FreightFromCity")
+  freightTo    FreightBooking[] @relation("FreightToCity")
 
   @@unique([name, state])
   @@map("cities")
@@ -437,8 +484,10 @@ model RouteStop {
   arrivalOffset   Int?
   departureOffset Int?
 
-  fareRulesFrom FareRule[] @relation("FareRuleFromStop")
-  fareRulesTo   FareRule[] @relation("FareRuleToStop")
+  fareRulesFrom    FareRule[]    @relation("FareRuleFromStop")
+  fareRulesTo      FareRule[]    @relation("FareRuleToStop")
+  freightLegsFrom  FreightLeg[]  @relation("LegFromStop")
+  freightLegsTo    FreightLeg[]  @relation("LegToStop")
 
   @@unique([routeId, stopOrder])
   @@map("route_stops")
@@ -510,8 +559,9 @@ model Trip {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  bookings  Booking[]
-  seatLocks SeatLock[]
+  bookings     Booking[]
+  seatLocks    SeatLock[]
+  freightLegs  FreightLeg[]
 
   @@unique([scheduleId, travelDate])
   @@map("trips")
@@ -560,12 +610,13 @@ model Booking {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  passengers BookingPassenger[]
-  seats      BookingsSeat[]
-  payment    Payment?
-  refund     Refund?
-  review     Review?
-  dispute    Dispute?
+  passengers   BookingPassenger[]
+  seats        BookingsSeat[]
+  payment      Payment?
+  refund       Refund?
+  review       Review?
+  dispute      Dispute?
+  agentBooking AgentPassengerBooking?
 
   @@index([userId])
   @@index([tripId])
@@ -958,4 +1009,206 @@ model CorporatePricingRule {
   updatedAt DateTime @updatedAt
 
   @@map("corporate_pricing_rules")
+}
+
+// ============================================================
+// AGENT
+// ============================================================
+
+model Agent {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName        String
+  address         String
+  cityId          String
+  city            City        @relation(fields: [cityId], references: [id])
+  panNumber       String?
+  aadhaarNumber   String?
+  panDocUrl       String?
+  aadhaarDocUrl   String?
+  phone           String
+  whatsappNumber  String?
+  status          AgentStatus @default(PENDING)
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  operators          AgentOperator[]
+  freightLegs        FreightLeg[]
+  freightBookings    FreightBooking[]      @relation("AgentFreightBooker")
+  passengerBookings  AgentPassengerBooking[]
+  earnings           AgentEarning[]
+
+  @@map("agents")
+}
+
+model AgentOperator {
+  id         String   @id @default(cuid())
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  operatorId String
+  operator   Operator @relation(fields: [operatorId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([agentId, operatorId])
+  @@map("agent_operators")
+}
+
+model AgentPassengerBooking {
+  id         String   @id @default(cuid())
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  bookingId  String   @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  commission Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+
+  @@map("agent_passenger_bookings")
+}
+
+model AgentEarning {
+  id          String           @id @default(cuid())
+  agentId     String
+  agent       Agent            @relation(fields: [agentId], references: [id])
+  type        AgentEarningType
+  amount      Decimal          @db.Decimal(10, 2)
+  referenceId String
+  date        DateTime         @db.Date
+  settledAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([agentId, date])
+  @@map("agent_earnings")
+}
+
+model AgentChargeConfig {
+  id                   String  @id @default(cuid())
+  agentOriginPct       Decimal @db.Decimal(5, 2)
+  agentInterimPct      Decimal @db.Decimal(5, 2)
+  agentFinalPct        Decimal @db.Decimal(5, 2)
+  agentSeatBookingComm Decimal @db.Decimal(5, 2)
+  agentFreightComm     Decimal @db.Decimal(5, 2)
+  perDayHoldingRate    Decimal @db.Decimal(10, 2)
+  isActive             Boolean @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("agent_charge_configs")
+}
+
+// ============================================================
+// FREIGHT
+// ============================================================
+
+model FreightPricingConfig {
+  id          String    @id @default(cuid())
+  pricingText String    @db.Text
+  generatedFn String?   @db.Text
+  generatedAt DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("freight_pricing_configs")
+}
+
+model FreightBooking {
+  id         String        @id @default(cuid())
+  bookingRef String        @unique @default(cuid())
+  status     FreightStatus @default(PENDING_PAYMENT)
+
+  senderId        String
+  sender          User   @relation("FreightSender", fields: [senderId], references: [id])
+  bookedByAgentId String?
+  bookedByAgent   Agent? @relation("AgentFreightBooker", fields: [bookedByAgentId], references: [id])
+
+  recipientName     String
+  recipientPhone    String
+  recipientWhatsapp String?
+  recipientEmail    String?
+  recipientAddress  String
+
+  fromCityId   String
+  fromCity     City     @relation("FreightFromCity", fields: [fromCityId], references: [id])
+  toCityId     String
+  toCity       City     @relation("FreightToCity", fields: [toCityId], references: [id])
+  shippingDate DateTime @db.Date
+
+  freightCost Decimal @db.Decimal(10, 2) @default(0)
+  agentCost   Decimal @db.Decimal(10, 2) @default(0)
+  totalCost   Decimal @db.Decimal(10, 2) @default(0)
+
+  qrToken      String    @unique @default(cuid())
+  cancelledAt  DateTime?
+  cancelReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items   FreightItem[]
+  legs    FreightLeg[]
+  payment FreightPayment?
+
+  @@index([senderId])
+  @@index([fromCityId, toCityId, shippingDate])
+  @@map("freight_bookings")
+}
+
+model FreightItem {
+  id          String         @id @default(cuid())
+  bookingId   String
+  booking     FreightBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  description String
+  weightKg    Decimal        @db.Decimal(6, 2)
+  lengthCm    Int
+  breadthCm   Int
+  heightCm    Int
+
+  @@map("freight_items")
+}
+
+model FreightLeg {
+  id           String              @id @default(cuid())
+  bookingId    String
+  booking      FreightBooking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  legOrder     Int
+
+  stopId       String
+  stop         RouteStop           @relation("LegFromStop", fields: [stopId], references: [id])
+  transferType FreightTransferType
+
+  agentId     String?
+  agent       Agent?              @relation(fields: [agentId], references: [id])
+  holdingDays Int                 @default(0)
+  agentCharge Decimal             @db.Decimal(10, 2) @default(0)
+
+  tripId     String?
+  trip       Trip?      @relation(fields: [tripId], references: [id])
+  toStopId   String?
+  toStop     RouteStop? @relation("LegToStop", fields: [toStopId], references: [id])
+  distanceKm Decimal?   @db.Decimal(8, 2)
+
+  status     FreightLegStatus @default(PENDING)
+  receivedAt DateTime?
+  loadedAt   DateTime?
+  releasedAt DateTime?
+
+  @@unique([bookingId, legOrder])
+  @@map("freight_legs")
+}
+
+model FreightPayment {
+  id               String         @id @default(cuid())
+  freightBookingId String         @unique
+  freightBooking   FreightBooking @relation(fields: [freightBookingId], references: [id])
+  amount           Decimal        @db.Decimal(10, 2)
+  method           PaymentMethod
+  status           PaymentStatus  @default(PENDING)
+  gatewayTxnId     String?
+  initiatedAt      DateTime       @default(now())
+  completedAt      DateTime?
+
+  @@map("freight_payments")
 }

@@ -16,6 +16,7 @@ export const authConfig = {
         token.operatorStatus = user.operatorStatus ?? null;
         token.driverId = user.driverId ?? null;
         token.corporateCompanyId = user.corporateCompanyId ?? null;
+        token.agentId = user.agentId ?? null;
       }
       return token;
     },
@@ -27,6 +28,7 @@ export const authConfig = {
         session.user.operatorStatus = token.operatorStatus;
         session.user.driverId = token.driverId;
         session.user.corporateCompanyId = token.corporateCompanyId ?? null;
+        session.user.agentId = token.agentId ?? null;
       }
       return session;
     },
