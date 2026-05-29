@@ -18,6 +18,7 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/admin/refunds", label: "Refunds", icon: "💸" },
     { href: "/admin/agents", label: "Agents", icon: "🤝" },
     { href: "/admin/pricing", label: "Pricing & Commission", icon: "⚙️" },
+    { href: "/admin/pricing/freight", label: "Freight Pricing", icon: "📦" },
     { href: "/admin/analytics", label: "Analytics", icon: "📈" },
     { href: "/admin/cache", label: "Cache Management", icon: "🗄️" },
   ],
