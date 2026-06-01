@@ -33,15 +33,23 @@ export default function FreightBookPage() {
     setLoading(true); setError("");
 
     // Build legs with transfer types
-    const legs = option.legs.map((leg: any, i: number) => ({
-      tripId:       leg.tripId,
-      fromStopId:   leg.fromStopId,
-      toStopId:     leg.toStopId,
-      distanceKm:   leg.distanceKm,
-      transferType: i === 0 ? "ORIGIN" : i === option.legs.length - 1 ? "FINAL" : "INTERIM",
-      agentId:      option.transfers[i - 1]?.agentId ?? (i === option.legs.length - 1 ? option.transfers[option.transfers.length - 1]?.agentId : undefined),
-      agentCharge:  option.transfers[i - 1]?.agentCharge ?? 0,
-    }));
+    const legs = option.legs.map((leg: any, i: number) => {
+      const isFinal = i === option.legs.length - 1;
+      const isFirst = i === 0;
+      return {
+        tripId:       leg.tripId,
+        fromStopId:   leg.fromStopId,
+        toStopId:     leg.toStopId,
+        distanceKm:   leg.distanceKm,
+        transferType: isFirst ? "ORIGIN" : isFinal ? "FINAL" : "INTERIM",
+        agentId:      isFinal && leg.destinationAgent?.agentId
+          ? leg.destinationAgent.agentId
+          : (option.transfers[i - 1]?.agentId ?? undefined),
+        agentCharge:  isFinal && leg.destinationAgent
+          ? (leg.agentCharge ?? 0)
+          : (option.transfers[i - 1]?.agentCharge ?? 0),
+      };
+    });
 
     // Build items (one item entry per description)
     const items = [{

@@ -18,6 +18,8 @@ enum UserRole {
   ADMIN
   CORPORATE
   AGENT
+  SHUTTLE_OPERATOR
+  CAB_OPERATOR
 }
 
 enum AgentStatus {
@@ -171,6 +173,31 @@ enum CharterBookingStatus {
   COMPLETED
 }
 
+enum ShuttleOperatorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ShuttleVehicleType {
+  SEATER_6
+  SEATER_8
+  SEATER_10
+}
+
+enum ShuttleBookingType {
+  PICKUP
+  DROPOFF
+}
+
+enum ShuttleBookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 // ============================================================
 // USER
 // ============================================================
@@ -205,6 +232,8 @@ model User {
   charterBookings      CharterBooking[]
   corporateMessages    CorporateChatMessage[]
   freightBookingsSent  FreightBooking[]  @relation("FreightSender")
+  shuttleOperator      ShuttleOperator?
+  cabOperator          CabOperator?
 
   @@map("users")
 }
@@ -437,12 +466,16 @@ model City {
   longitude Decimal? @db.Decimal(10, 7)
   isActive  Boolean  @default(true)
 
-  fromRoutes   Route[]          @relation("FromCity")
-  toRoutes     Route[]          @relation("ToCity")
-  stops        RouteStop[]
-  agents       Agent[]
-  freightFrom  FreightBooking[] @relation("FreightFromCity")
-  freightTo    FreightBooking[] @relation("FreightToCity")
+  fromRoutes       Route[]          @relation("FromCity")
+  toRoutes         Route[]          @relation("ToCity")
+  stops            RouteStop[]
+  agents           Agent[]
+  freightFrom      FreightBooking[] @relation("FreightFromCity")
+  freightTo        FreightBooking[] @relation("FreightToCity")
+  shuttleOperators ShuttleOperator[]
+  shuttleBookings  ShuttleBooking[]
+  cabOperators     CabOperator[]
+  cabBookings      CabBooking[]
 
   @@unique([name, state])
   @@map("cities")
@@ -610,6 +643,13 @@ model Booking {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
+  extraLuggageWeightKg Decimal? @db.Decimal(6, 2)
+  extraLuggageCharge   Decimal? @db.Decimal(10, 2)
+  bulkGroupId          String?
+  bulkGroup            BulkBookingGroup?      @relation(fields: [bulkGroupId], references: [id])
+  connectingGroupId    String?
+  connectingGroup      ConnectingBookingGroup? @relation(fields: [connectingGroupId], references: [id])
+
   passengers   BookingPassenger[]
   seats        BookingsSeat[]
   payment      Payment?
@@ -617,6 +657,8 @@ model Booking {
   review       Review?
   dispute      Dispute?
   agentBooking AgentPassengerBooking?
+  shuttleBookings ShuttleBooking[]
+  cabBookings     CabBooking[]
 
   @@index([userId])
   @@index([tripId])
@@ -1211,4 +1253,189 @@ model FreightPayment {
   completedAt      DateTime?
 
   @@map("freight_payments")
+}
+
+// ============================================================
+// EXTRA LUGGAGE PRICING
+// ============================================================
+
+model ExtraLuggagePricingConfig {
+  id          String    @id @default(cuid())
+  pricingText String    @db.Text
+  generatedFn String?   @db.Text
+  generatedAt DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("extra_luggage_pricing_configs")
+}
+
+// ============================================================
+// SHUTTLE & CAB
+// ============================================================
+
+model ShuttlePricingConfig {
+  id          String    @id @default(cuid())
+  pricingText String    @db.Text
+  generatedFn String?   @db.Text
+  generatedAt DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("shuttle_pricing_configs")
+}
+
+model CabPricingConfig {
+  id          String    @id @default(cuid())
+  pricingText String    @db.Text
+  generatedFn String?   @db.Text
+  generatedAt DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("cab_pricing_configs")
+}
+
+model ShuttleOperator {
+  id          String                @id @default(cuid())
+  userId      String                @unique
+  user        User                  @relation(fields: [userId], references: [id])
+  fullName    String
+  address     String
+  cityId      String
+  city        City                  @relation(fields: [cityId], references: [id])
+  phone       String
+  whatsapp    String?
+  email       String
+  panDocUrl   String?
+  regNo       String?
+  driverName  String?
+  driverPhone String?
+  status      ShuttleOperatorStatus @default(PENDING)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  vehicles ShuttleVehicle[]
+  bookings ShuttleBooking[]
+
+  @@map("shuttle_operators")
+}
+
+model ShuttleVehicle {
+  id                String             @id @default(cuid())
+  shuttleOperatorId String
+  shuttleOperator   ShuttleOperator    @relation(fields: [shuttleOperatorId], references: [id])
+  vehicleType       ShuttleVehicleType
+  regNo             String             @unique
+  name              String
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+
+  bookings ShuttleBooking[]
+
+  @@map("shuttle_vehicles")
+}
+
+model ShuttleBooking {
+  id                String               @id @default(cuid())
+  bookingId         String
+  booking           Booking              @relation(fields: [bookingId], references: [id])
+  type              ShuttleBookingType
+  address           String
+  cityId            String
+  city              City                 @relation(fields: [cityId], references: [id])
+  scheduledAt       DateTime?
+  confirmedAt       DateTime?
+  price             Decimal              @default(0) @db.Decimal(10, 2)
+  status            ShuttleBookingStatus @default(PENDING)
+  shuttleOperatorId String?
+  shuttleOperator   ShuttleOperator?     @relation(fields: [shuttleOperatorId], references: [id])
+  vehicleId         String?
+  vehicle           ShuttleVehicle?      @relation(fields: [vehicleId], references: [id])
+  cancelledAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@map("shuttle_bookings")
+}
+
+// ============================================================
+// BULK BOOKING
+// ============================================================
+
+model BulkBookingGroup {
+  id          String   @id @default(cuid())
+  type        String
+  initiatedBy String
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  bookings Booking[]
+
+  @@map("bulk_booking_groups")
+}
+
+// ============================================================
+// CONNECTING / MULTI-ROUTE BOOKING
+// ============================================================
+
+model ConnectingBookingGroup {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  bookings Booking[]
+
+  @@map("connecting_booking_groups")
+}
+
+// ============================================================
+// CAB SERVICE
+// ============================================================
+
+model CabOperator {
+  id          String                @id @default(cuid())
+  userId      String                @unique
+  user        User                  @relation(fields: [userId], references: [id])
+  fullName    String
+  address     String
+  cityId      String
+  city        City                  @relation(fields: [cityId], references: [id])
+  phone       String
+  whatsapp    String?
+  email       String
+  vehicleReg  String?
+  vehicleType String?
+  driverName  String?
+  driverPhone String?
+  status      ShuttleOperatorStatus @default(PENDING)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  bookings CabBooking[]
+
+  @@map("cab_operators")
+}
+
+model CabBooking {
+  id            String               @id @default(cuid())
+  bookingId     String
+  booking       Booking              @relation(fields: [bookingId], references: [id])
+  type          ShuttleBookingType
+  address       String
+  cityId        String
+  city          City                 @relation(fields: [cityId], references: [id])
+  scheduledAt   DateTime?
+  confirmedAt   DateTime?
+  price         Decimal              @default(0) @db.Decimal(10, 2)
+  status        ShuttleBookingStatus @default(PENDING)
+  cabOperatorId String?
+  cabOperator   CabOperator?         @relation(fields: [cabOperatorId], references: [id])
+  cancelledAt   DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@map("cab_bookings")
 }

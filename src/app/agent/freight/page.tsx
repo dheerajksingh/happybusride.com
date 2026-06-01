@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -22,18 +23,43 @@ export default function AgentFreightPage() {
   const [data, setData] = useState<{ booked: any[]; handling: any[] }>({ booked: [], handling: [] });
   const [tab, setTab] = useState<"booked" | "handling">("handling");
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadData = () => {
     fetch("/api/agent/freight").then(r => r.json()).then(d => { setData(d); setLoading(false); });
-  }, []);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const updateStatus = async (legId: string, action: string) => {
+    setUpdating(legId);
+    const res = await fetch(`/api/agent/freight/${legId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      loadData();
+    } else {
+      const err = await res.json();
+      alert(err.error ?? "Failed to update status");
+    }
+    setUpdating(null);
+  };
 
   if (loading) return <div className="py-12 text-center text-gray-400">Loading…</div>;
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Freight</h1>
-        <p className="text-sm text-gray-500">Manage cargo you are handling or have booked on behalf of clients</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Freight</h1>
+          <p className="text-sm text-gray-500">Manage cargo you are handling or have booked on behalf of clients</p>
+        </div>
+        <Link href="/agent/freight/book-walkin"
+          className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-600">
+          + Book for Walk-in Customer
+        </Link>
       </div>
 
       {/* Tabs */}
@@ -75,14 +101,29 @@ export default function AgentFreightPage() {
                 )}
                 {/* Status update buttons */}
                 <div className="mt-3 flex gap-2">
-                  {leg.status === "PENDING" && !leg.receivedAt && (
-                    <button className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700">Mark Received</button>
+                  {leg.status === "PENDING" && (
+                    <button
+                      disabled={updating === leg.id}
+                      onClick={() => updateStatus(leg.id, "AGENT_RECEIVED")}
+                      className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                      {updating === leg.id ? "Updating…" : "Mark Received"}
+                    </button>
                   )}
                   {leg.status === "AGENT_RECEIVED" && leg.transferType !== "FINAL" && (
-                    <button className="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700">Mark Loaded to Bus</button>
+                    <button
+                      disabled={updating === leg.id}
+                      onClick={() => updateStatus(leg.id, "LOADED")}
+                      className="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                      {updating === leg.id ? "Updating…" : "Mark Loaded to Bus"}
+                    </button>
                   )}
                   {leg.status === "AGENT_RECEIVED" && leg.transferType === "FINAL" && (
-                    <button className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Mark Collected by Recipient</button>
+                    <button
+                      disabled={updating === leg.id}
+                      onClick={() => updateStatus(leg.id, "COLLECTED")}
+                      className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                      {updating === leg.id ? "Updating…" : "Mark Collected by Recipient"}
+                    </button>
                   )}
                 </div>
               </div>

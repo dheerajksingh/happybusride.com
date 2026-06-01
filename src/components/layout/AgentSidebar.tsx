@@ -5,11 +5,13 @@ import { signOut } from "next-auth/react";
 import { APP_NAME } from "@/constants/config";
 
 const NAV = [
-  { href: "/agent/dashboard",   label: "Dashboard",  icon: "📊" },
-  { href: "/agent/passengers",  label: "Passengers", icon: "👥" },
-  { href: "/agent/freight",     label: "Freight",    icon: "📦" },
-  { href: "/agent/operators",   label: "Operators",  icon: "🚌" },
-  { href: "/agent/onboarding",  label: "My Profile", icon: "👤" },
+  { href: "/agent/dashboard",     label: "Dashboard",    icon: "📊" },
+  { href: "/agent/passengers",    label: "Passengers",   icon: "👥" },
+  { href: "/agent/bulk-booking",  label: "Bulk Booking", icon: "📋" },
+  { href: "/agent/freight",       label: "Freight",      icon: "📦" },
+  { href: "/agent/earnings",      label: "Earnings",     icon: "💰" },
+  { href: "/agent/operators",     label: "Operators",    icon: "🚌" },
+  { href: "/agent/onboarding",    label: "My Profile",   icon: "👤" },
 ];
 
 export function AgentSidebar() {

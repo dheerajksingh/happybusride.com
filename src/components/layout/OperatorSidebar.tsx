@@ -16,6 +16,7 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/operator/schedules", label: "Schedules", icon: "📅" },
     { href: "/operator/trips", label: "Trips", icon: "🎫" },
     { href: "/operator/drivers", label: "Drivers", icon: "👤" },
+    { href: "/operator/agents", label: "Agents", icon: "🤝" },
     { href: "/operator/fares", label: "Fare Rules", icon: "💲" },
     { href: "/operator/earnings", label: "Earnings", icon: "💰" },
   ],

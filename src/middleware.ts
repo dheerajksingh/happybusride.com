@@ -84,6 +84,20 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Shuttle operator routes (exclude public auth pages)
+  const shuttlePublic = ["/shuttle/login", "/shuttle/register"];
+  if (pathname.startsWith("/shuttle") && !shuttlePublic.includes(pathname)) {
+    if (!token) return NextResponse.redirect(new URL("/shuttle/login", req.url));
+    if (role !== "SHUTTLE_OPERATOR") return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // Cab operator routes (exclude public auth pages)
+  const cabPublic = ["/cab/login", "/cab/register"];
+  if (pathname.startsWith("/cab") && !cabPublic.includes(pathname)) {
+    if (!token) return NextResponse.redirect(new URL("/cab/login", req.url));
+    if (role !== "CAB_OPERATOR") return NextResponse.redirect(new URL("/", req.url));
+  }
+
   // Passenger protected routes
   if (pathname.startsWith("/my-trips") || pathname.startsWith("/booking")) {
     if (!token) {
@@ -101,6 +115,8 @@ export const config = {
     "/admin/:path*",
     "/corporate/:path*",
     "/agent/:path*",
+    "/shuttle/:path*",
+    "/cab/:path*",
     "/my-trips/:path*",
     "/booking/:path*",
     "/api/operator/:path*",

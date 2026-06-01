@@ -88,6 +88,14 @@ async function findDirectOptions(
     },
   });
 
+  const agentConfig = await prisma.agentChargeConfig.findFirst({ where: { isActive: true } });
+  const finalPct = Number(agentConfig?.agentFinalPct ?? 5) / 100;
+
+  const destAgent = await prisma.agent.findFirst({
+    where: { cityId: toCityId, status: "APPROVED" },
+    select: { id: true, fullName: true, phone: true },
+  });
+
   const options = [];
   for (const sch of schedules) {
     const trip = sch.trips[0];
@@ -108,28 +116,48 @@ async function findDirectOptions(
     const distKm = Number(routeDist) * (toOrd - fromOrd) / Math.max(totalStops - 1, 1);
 
     const price = await calcFreightPrice(totalKg, totalCm3, distKm);
+    const finalAgentCharge = destAgent ? Math.round(price * finalPct) : 0;
+
+    const lastLeg: any = {
+      tripId:       trip.id,
+      scheduleId:   sch.id,
+      busName:      sch.bus.name,
+      fromStopId:   fromStop.id,
+      fromCityName: fromStop.city.name,
+      fromStopName: fromStop.stopName,
+      toStopId:     toStop.id,
+      toCityName:   toStop.city.name,
+      toStopName:   toStop.stopName,
+      departureTime: depTime.toISOString(),
+      distanceKm:   Math.round(distKm),
+    };
+
+    if (destAgent) {
+      lastLeg.destinationAgent = {
+        agentId:    destAgent.id,
+        agentName:  destAgent.fullName,
+        agentPhone: destAgent.phone,
+      };
+      lastLeg.agentCharge = finalAgentCharge;
+    }
 
     options.push({
       type: "DIRECT" as const,
-      legs: [{
-        tripId:       trip.id,
-        scheduleId:   sch.id,
-        busName:      sch.bus.name,
-        fromStopId:   fromStop.id,
-        fromCityName: fromStop.city.name,
-        fromStopName: fromStop.stopName,
-        toStopId:     toStop.id,
-        toCityName:   toStop.city.name,
-        toStopName:   toStop.stopName,
-        departureTime: depTime.toISOString(),
-        distanceKm:   Math.round(distKm),
-      }],
+      legs: [lastLeg],
       transfers: [],
       freightCost: price,
-      agentCost:   0,
-      totalCost:   price,
+      agentCost:   finalAgentCharge,
+      totalCost:   price + finalAgentCharge,
       availableKg:  cap.kg,
       availableCm3: cap.cm3,
+      ...(destAgent ? {
+        destinationAgent: {
+          agentId:    destAgent.id,
+          agentName:  destAgent.fullName,
+          agentPhone: destAgent.phone,
+        },
+        finalAgentCharge,
+      } : {}),
     });
   }
   return options;
@@ -199,6 +227,12 @@ async function findOneHopOptions(
 
   const agentConfig = await prisma.agentChargeConfig.findFirst({ where: { isActive: true } });
   const interimPct = Number(agentConfig?.agentInterimPct ?? 10) / 100;
+  const finalPct = Number(agentConfig?.agentFinalPct ?? 5) / 100;
+
+  const destAgentOneHop = await prisma.agent.findFirst({
+    where: { cityId: toCityId, status: "APPROVED" },
+    select: { id: true, fullName: true, phone: true },
+  });
 
   const options = [];
 
@@ -258,6 +292,22 @@ async function findOneHopOptions(
 
     const freightCost = await calcFreightPrice(totalKg, totalCm3, totalDist);
     const agentCost   = Math.round(freightCost * interimPct);
+    const finalAgentCharge = destAgentOneHop ? Math.round(freightCost * finalPct) : 0;
+
+    const lastLeg2: any = {
+      tripId: trip2.id, scheduleId: sch2.id, busName: sch2.bus.name,
+      fromStopId: fromStop2.id, fromCityName: fromStop2.city.name, fromStopName: fromStop2.stopName,
+      toStopId: toStop2.id, toCityName: toStop2.city.name, toStopName: toStop2.stopName,
+      departureTime: sch2.departureTime.toISOString(), distanceKm: Math.round(dist2),
+    };
+    if (destAgentOneHop) {
+      lastLeg2.destinationAgent = {
+        agentId:    destAgentOneHop.id,
+        agentName:  destAgentOneHop.fullName,
+        agentPhone: destAgentOneHop.phone,
+      };
+      lastLeg2.agentCharge = finalAgentCharge;
+    }
 
     options.push({
       type: "ONE_HOP" as const,
@@ -268,12 +318,7 @@ async function findOneHopOptions(
           toStopId: toStop1.id, toCityName: toStop1.city.name, toStopName: toStop1.stopName,
           departureTime: sch1.departureTime.toISOString(), distanceKm: Math.round(dist1),
         },
-        {
-          tripId: trip2.id, scheduleId: sch2.id, busName: sch2.bus.name,
-          fromStopId: fromStop2.id, fromCityName: fromStop2.city.name, fromStopName: fromStop2.stopName,
-          toStopId: toStop2.id, toCityName: toStop2.city.name, toStopName: toStop2.stopName,
-          departureTime: sch2.departureTime.toISOString(), distanceKm: Math.round(dist2),
-        },
+        lastLeg2,
       ],
       transfers: [{
         cityName:   midCity?.name ?? "",
@@ -283,10 +328,18 @@ async function findOneHopOptions(
         agentCharge: agentCost,
       }],
       freightCost,
-      agentCost,
-      totalCost: freightCost + agentCost,
+      agentCost: agentCost + finalAgentCharge,
+      totalCost: freightCost + agentCost + finalAgentCharge,
       availableKg:  availKg,
       availableCm3: availCm3,
+      ...(destAgentOneHop ? {
+        destinationAgent: {
+          agentId:    destAgentOneHop.id,
+          agentName:  destAgentOneHop.fullName,
+          agentPhone: destAgentOneHop.phone,
+        },
+        finalAgentCharge,
+      } : {}),
     });
   }
 
