@@ -7,6 +7,7 @@ export interface MobileSession {
     operatorId: string | null;
     operatorStatus: string | null;
     driverId: string | null;
+    agentId: string | null;
   };
 }
 
@@ -19,11 +20,12 @@ export async function getMobileSession(req: Request): Promise<MobileSession | nu
     const { payload } = await jwtVerify(token, secret);
     return {
       user: {
-        id: payload.sub!,
-        role: payload.role as string,
-        operatorId: (payload.operatorId as string) ?? null,
+        id:             payload.sub!,
+        role:           payload.role           as string,
+        operatorId:     (payload.operatorId     as string) ?? null,
         operatorStatus: (payload.operatorStatus as string) ?? null,
-        driverId: (payload.driverId as string) ?? null,
+        driverId:       (payload.driverId       as string) ?? null,
+        agentId:        (payload.agentId        as string) ?? null,
       },
     };
   } catch {
