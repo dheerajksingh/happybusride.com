@@ -7,6 +7,8 @@ export interface City {
   name: string;
   state: string;
   code: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface Props {

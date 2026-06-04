@@ -25,6 +25,8 @@ export default function EditRoutePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasActiveSchedules, setHasActiveSchedules] = useState(false);
+  const [distanceFetching, setDistanceFetching] = useState(false);
+  const [distanceSource, setDistanceSource] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     fromCityId: "", fromCityName: "",
@@ -33,6 +35,22 @@ export default function EditRoutePage() {
     durationMins: "",
   });
   const [stops, setStops] = useState<Stop[]>([]);
+
+  async function fetchDistance(fromCityId: string, toCityId: string) {
+    if (!fromCityId || !toCityId || fromCityId === toCityId) return;
+    setDistanceFetching(true);
+    setDistanceSource(null);
+    try {
+      const res = await fetch(`/api/operator/routes/distance?fromCityId=${fromCityId}&toCityId=${toCityId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setForm(f => ({ ...f, distanceKm: String(data.distanceKm), durationMins: String(data.durationMins) }));
+        setDistanceSource(data.source);
+      }
+    } finally {
+      setDistanceFetching(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/operator/routes/${routeId}`).then((r) => r.json()).then((route) => {
@@ -150,25 +168,39 @@ export default function EditRoutePage() {
             <CityAutocomplete
               label="From City"
               value={form.fromCityName}
-              onChange={(c) => setForm((f) => ({ ...f, fromCityId: c.id, fromCityName: c.name }))}
+              onChange={(c) => {
+                setForm((f) => ({ ...f, fromCityId: c.id, fromCityName: c.name }));
+                fetchDistance(c.id, form.toCityId);
+              }}
               placeholder="Search city…"
             />
             <CityAutocomplete
               label="To City"
               value={form.toCityName}
-              onChange={(c) => setForm((f) => ({ ...f, toCityId: c.id, toCityName: c.name }))}
+              onChange={(c) => {
+                setForm((f) => ({ ...f, toCityId: c.id, toCityName: c.name }));
+                fetchDistance(form.fromCityId, c.id);
+              }}
               placeholder="Search city…"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Distance (km)"
-              type="number"
-              placeholder="e.g. 1400"
-              value={form.distanceKm}
-              onChange={(e) => setForm((f) => ({ ...f, distanceKm: e.target.value }))}
-            />
+            <div>
+              <Input
+                label="Distance (km)"
+                type="number"
+                placeholder="e.g. 1400"
+                value={form.distanceKm}
+                onChange={(e) => setForm((f) => ({ ...f, distanceKm: e.target.value }))}
+              />
+              {distanceFetching && <p className="mt-1 text-xs text-blue-500">Calculating road distance…</p>}
+              {!distanceFetching && distanceSource && (
+                <p className="mt-1 text-xs text-green-600">
+                  {distanceSource === "google" ? "✅ Via Google Maps" : "⚠️ Estimated (no Google Maps key)"} — edit if needed
+                </p>
+              )}
+            </div>
             <Input
               label="Duration (mins)"
               type="number"

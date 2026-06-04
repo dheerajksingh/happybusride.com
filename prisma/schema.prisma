@@ -472,10 +472,12 @@ model City {
   agents           Agent[]
   freightFrom      FreightBooking[] @relation("FreightFromCity")
   freightTo        FreightBooking[] @relation("FreightToCity")
-  shuttleOperators ShuttleOperator[]
-  shuttleBookings  ShuttleBooking[]
-  cabOperators     CabOperator[]
-  cabBookings      CabBooking[]
+  shuttleOperators  ShuttleOperator[]
+  shuttleBookings   ShuttleBooking[]
+  cabOperators      CabOperator[]
+  cabBookings       CabBooking[]
+  distancesFrom     CityDistance[]    @relation("DistanceFrom")
+  distancesTo       CityDistance[]    @relation("DistanceTo")
 
   @@unique([name, state])
   @@map("cities")
@@ -1389,6 +1391,25 @@ model ConnectingBookingGroup {
   bookings Booking[]
 
   @@map("connecting_booking_groups")
+}
+
+// ============================================================
+// CITY DISTANCE CACHE
+// ============================================================
+
+model CityDistance {
+  id          String   @id @default(cuid())
+  fromCityId  String
+  fromCity    City     @relation("DistanceFrom", fields: [fromCityId], references: [id])
+  toCityId    String
+  toCity      City     @relation("DistanceTo", fields: [toCityId], references: [id])
+  distanceKm  Decimal  @db.Decimal(8, 1)
+  durationMins Int
+  source      String   @default("google") // "google" | "haversine"
+  createdAt   DateTime @default(now())
+
+  @@unique([fromCityId, toCityId])
+  @@map("city_distances")
 }
 
 // ============================================================
