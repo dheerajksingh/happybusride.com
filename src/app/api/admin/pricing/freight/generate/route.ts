@@ -27,13 +27,18 @@ ${config.pricingText}
 
 Generate a JavaScript function body (not a full function declaration, just the body) that:
 1. Takes three parameters: weightKg (number), volumeCm3 (number), distanceKm (number)
-2. Returns a price in Indian Rupees (number) based on the pricing table above
-3. Interpolates or extrapolates for values between/outside the table
+   - volumeCm3 is the pre-calculated volume in cubic centimetres (length × breadth × height)
+   - e.g. 30×30×30 cm dimensions = 27000 volumeCm3
+2. Returns a price in Indian Rupees as a positive number
+3. Interpolates or extrapolates for values between/outside the table rows
 4. Uses only basic JavaScript (no imports, no external libraries)
+5. Always returns a positive number — never return 0, undefined, or null
 
 The function body will be used like this:
   const fn = new Function('weightKg', 'volumeCm3', 'distanceKm', YOUR_FUNCTION_BODY);
   const price = fn(weightKg, volumeCm3, distanceKm);
+
+Example: fn(5, 27000, 100) should return approximately 500 based on the first row.
 
 Return ONLY the JavaScript function body code, no explanation, no markdown, no code fences.`;
 
@@ -48,13 +53,21 @@ Return ONLY the JavaScript function body code, no explanation, no markdown, no c
     if (!fnBody) return NextResponse.json({ error: "Claude returned empty response" }, { status: 502 });
 
     // Validate the generated function
+    // Test with 5kg, 27000cm³ (30×30×30), 100km — matches first row of default pricing table
+    let testResult: any;
     try {
       // eslint-disable-next-line no-new-func
       const testFn = new Function("weightKg", "volumeCm3", "distanceKm", fnBody);
-      const testResult = testFn(10, 30000, 100);
-      if (typeof testResult !== "number" || testResult <= 0) throw new Error("Invalid result");
-    } catch {
-      return NextResponse.json({ error: "Generated function is invalid — please refine pricing text and try again" }, { status: 422 });
+      testResult = testFn(5, 27000, 100);
+      if (typeof testResult !== "number" || testResult <= 0) {
+        return NextResponse.json({
+          error: `Generated function returned "${testResult}" for (5kg, 27000cm³, 100km) — expected a positive number. Please refine your pricing text and try again.`,
+        }, { status: 422 });
+      }
+    } catch (e: any) {
+      return NextResponse.json({
+        error: `Generated function threw an error: ${e.message}. Please refine your pricing text and try again.`,
+      }, { status: 422 });
     }
 
     // Save + activate
@@ -63,7 +76,7 @@ Return ONLY the JavaScript function body code, no explanation, no markdown, no c
       data: { generatedFn: fnBody, generatedAt: new Date(), isActive: true },
     });
 
-    return NextResponse.json({ config: updated, preview: `Test (10kg, 30L, 100km): ₹${new Function("weightKg", "volumeCm3", "distanceKm", fnBody)(10, 30000, 100)}` });
+    return NextResponse.json({ config: updated, preview: `Test (5kg, 27L, 100km): ₹${testResult}` });
   } catch (err: any) {
     return NextResponse.json({ error: err.message ?? "Generation failed" }, { status: 500 });
   }

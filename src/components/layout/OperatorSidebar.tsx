@@ -123,7 +123,9 @@ export function OperatorSidebar() {
         {navItems.map((item) => {
             const active =
               pathname === item.href ||
-              (item.href !== "/operator" && pathname.startsWith(item.href));
+              (item.href !== "/operator" &&
+               pathname.startsWith(item.href + "/") &&
+               !navItems.some(o => o.href !== item.href && pathname.startsWith(o.href)));
             return (
               <Link
                 key={item.href}
