@@ -1,12 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+
+const AUTH_PATHS = ["/shuttle/login", "/shuttle/register"];
 
 const NAV = [
   { href: "/shuttle/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/shuttle/vehicles", label: "Vehicles", icon: "🚐" },
-  { href: "/shuttle/bookings", label: "Bookings", icon: "📋" },
+  { href: "/shuttle/vehicles",  label: "Vehicles",  icon: "🚐" },
+  { href: "/shuttle/bookings",  label: "Bookings",  icon: "📋" },
 ];
 
 export default function ShuttleLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  if (AUTH_PATHS.includes(pathname)) return <>{children}</>;
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <aside className="flex h-screen w-56 flex-col border-r border-gray-200 bg-white">
@@ -15,18 +25,23 @@ export default function ShuttleLayout({ children }: { children: React.ReactNode 
           <p className="text-xs text-gray-500">Shuttle Operator</p>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-          {NAV.map(item => (
-            <Link key={item.href} href={item.href}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-              <span>{item.icon}</span>{item.label}
-            </Link>
-          ))}
+          {NAV.map(item => {
+            const active = pathname === item.href || pathname.startsWith(item.href);
+            return (
+              <Link key={item.href} href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  active ? "bg-teal-50 text-teal-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}>
+                <span>{item.icon}</span>{item.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="border-t border-gray-200 px-3 py-4">
-          <Link href="/shuttle/login"
+          <button onClick={() => signOut({ callbackUrl: "/shuttle/login" })}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-red-600">
             <span>🚪</span> Logout
-          </Link>
+          </button>
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-6">{children}</main>
