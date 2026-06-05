@@ -1,63 +1,46 @@
 /**
  * Next.js instrumentation hook — runs once at server startup.
- * Validates required environment variables before the app accepts requests.
- * Only truly critical vars (no fallback) cause a hard failure.
- * Everything else logs a warning so features degrade gracefully.
+ * Uses explicit dot notation so webpack/DefinePlugin replaces
+ * each value at build time from next.config.ts env block.
  */
-
-interface EnvVar {
-  name: string;
-  required: boolean;
-  description: string;
-}
-
-const ENV_VARS: EnvVar[] = [
-  // ── Critical — app cannot function without these ─────────────
-  { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
-  { name: "AUTH_SECRET",  required: true, description: "NextAuth session signing secret" },
-
-  // ── Important — features degrade without these ───────────────
-  { name: "ANTHROPIC_API_KEY",        required: false, description: "Claude API key — pricing generator buttons won't work" },
-  { name: "UPSTASH_REDIS_REST_URL",   required: false, description: "Upstash Redis URL — city cache disabled, falls back to DB" },
-  { name: "UPSTASH_REDIS_REST_TOKEN", required: false, description: "Upstash Redis token" },
-
-  // ── Optional — graceful fallback exists ──────────────────────
-  { name: "GOOGLE_MAPS_API_KEY", required: false, description: "Google Maps — road distance falls back to Haversine estimate" },
-  { name: "AWS_BUCKET_NAME",     required: false, description: "S3 bucket — file uploads fall back to local disk" },
-  { name: "AWS_REGION",          required: false, description: "S3 region" },
-  { name: "MSG91_API_KEY",       required: false, description: "MSG91 SMS OTP — falls back to OTP_DEV_CODE in dev" },
-];
-
 export async function register() {
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  for (const v of ENV_VARS) {
-    const value = process.env[v.name];
+  function check(name: string, value: string | undefined, required: boolean, description: string) {
     if (!value) {
-      if (v.required) {
-        missing.push(`  ✗ ${v.name} — ${v.description}`);
-      } else {
-        warnings.push(`  ⚠ ${v.name} not set — ${v.description}`);
-      }
+      if (required) missing.push(`  ✗ ${name} — ${description}`);
+      else warnings.push(`  ⚠ ${name} not set — ${description}`);
     }
   }
 
+  // ── Critical (app cannot function without these) ─────────────
+  check("DATABASE_URL", process.env.DATABASE_URL, true,  "PostgreSQL connection string");
+  check("AUTH_SECRET",  process.env.AUTH_SECRET,  true,  "NextAuth session signing secret");
+
+  // ── Important (features degrade) ─────────────────────────────
+  check("ANTHROPIC_API_KEY",        process.env.ANTHROPIC_API_KEY,        false, "Claude API key — pricing generator buttons won't work");
+  check("UPSTASH_REDIS_REST_URL",   process.env.UPSTASH_REDIS_REST_URL,   false, "Upstash Redis URL — city cache falls back to DB");
+  check("UPSTASH_REDIS_REST_TOKEN", process.env.UPSTASH_REDIS_REST_TOKEN, false, "Upstash Redis token");
+
+  // ── Optional (graceful fallback exists) ──────────────────────
+  check("GOOGLE_MAPS_API_KEY", process.env.GOOGLE_MAPS_API_KEY, false, "Google Maps — road distance falls back to Haversine");
+  check("AWS_BUCKET_NAME",     process.env.AWS_BUCKET_NAME,     false, "S3 bucket — file uploads fall back to local disk");
+  check("MSG91_API_KEY",       process.env.MSG91_API_KEY,       false, "MSG91 SMS OTP — falls back to OTP_DEV_CODE in dev");
+
   if (warnings.length) {
-    console.warn("\n[env] Optional/degraded environment variables not set:");
+    console.warn("[env] Some environment variables not set (features will degrade):");
     warnings.forEach((w) => console.warn(w));
-    console.warn("");
   }
 
   if (missing.length) {
     const msg = [
-      "\n[env] ✗ STARTUP FAILED — critical environment variables missing:",
+      "[env] ✗ STARTUP FAILED — critical environment variables missing:",
       ...missing,
-      "\nSet these in .env (local) or Amplify Environment Variables (production).\n",
+      "Set these in .env (local) or Amplify Environment Variables (production).",
     ].join("\n");
-
     console.error(msg);
-    throw new Error(`Missing critical environment variables:\n${missing.join("\n")}`);
+    throw new Error(msg);
   }
 
   console.log("[env] ✓ Environment variables validated");
