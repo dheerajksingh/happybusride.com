@@ -1,8 +1,8 @@
 /**
  * Next.js instrumentation hook — runs once at server startup.
- * Validates all required environment variables before the app
- * accepts any requests. A missing var fails the boot immediately
- * rather than surfacing as a mid-request error.
+ * Validates required environment variables before the app accepts requests.
+ * Only truly critical vars (no fallback) cause a hard failure.
+ * Everything else logs a warning so features degrade gracefully.
  */
 
 interface EnvVar {
@@ -12,22 +12,20 @@ interface EnvVar {
 }
 
 const ENV_VARS: EnvVar[] = [
-  // ── Core ────────────────────────────────────────────────────
-  { name: "DATABASE_URL",    required: true,  description: "PostgreSQL connection string" },
-  { name: "AUTH_SECRET",     required: true,  description: "NextAuth session signing secret" },
+  // ── Critical — app cannot function without these ─────────────
+  { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
+  { name: "AUTH_SECRET",  required: true, description: "NextAuth session signing secret" },
 
-  // ── AI ──────────────────────────────────────────────────────
-  { name: "ANTHROPIC_API_KEY", required: true, description: "Anthropic Claude API key (pricing calculators)" },
+  // ── Important — features degrade without these ───────────────
+  { name: "ANTHROPIC_API_KEY",        required: false, description: "Claude API key — pricing generator buttons won't work" },
+  { name: "UPSTASH_REDIS_REST_URL",   required: false, description: "Upstash Redis URL — city cache disabled, falls back to DB" },
+  { name: "UPSTASH_REDIS_REST_TOKEN", required: false, description: "Upstash Redis token" },
 
-  // ── Redis ───────────────────────────────────────────────────
-  { name: "UPSTASH_REDIS_REST_URL",   required: true, description: "Upstash Redis URL (city cache)" },
-  { name: "UPSTASH_REDIS_REST_TOKEN", required: true, description: "Upstash Redis token" },
-
-  // ── Optional (graceful fallback exists) ─────────────────────
-  { name: "GOOGLE_MAPS_API_KEY", required: false, description: "Google Maps (road distance — falls back to Haversine)" },
-  { name: "AWS_BUCKET_NAME",     required: false, description: "S3 bucket (file uploads — falls back to local disk)" },
+  // ── Optional — graceful fallback exists ──────────────────────
+  { name: "GOOGLE_MAPS_API_KEY", required: false, description: "Google Maps — road distance falls back to Haversine estimate" },
+  { name: "AWS_BUCKET_NAME",     required: false, description: "S3 bucket — file uploads fall back to local disk" },
   { name: "AWS_REGION",          required: false, description: "S3 region" },
-  { name: "MSG91_API_KEY",       required: false, description: "MSG91 SMS OTP (falls back to OTP_DEV_CODE)" },
+  { name: "MSG91_API_KEY",       required: false, description: "MSG91 SMS OTP — falls back to OTP_DEV_CODE in dev" },
 ];
 
 export async function register() {
@@ -46,20 +44,21 @@ export async function register() {
   }
 
   if (warnings.length) {
-    console.warn("\n[env] Optional environment variables not set:");
+    console.warn("\n[env] Optional/degraded environment variables not set:");
     warnings.forEach((w) => console.warn(w));
+    console.warn("");
   }
 
   if (missing.length) {
     const msg = [
-      "\n[env] ✗ STARTUP FAILED — required environment variables missing:",
+      "\n[env] ✗ STARTUP FAILED — critical environment variables missing:",
       ...missing,
-      "\nSet these in your .env file (local) or Amplify Environment Variables (production).\n",
+      "\nSet these in .env (local) or Amplify Environment Variables (production).\n",
     ].join("\n");
 
     console.error(msg);
-    throw new Error(`Missing required environment variables:\n${missing.join("\n")}`);
+    throw new Error(`Missing critical environment variables:\n${missing.join("\n")}`);
   }
 
-  console.log("[env] ✓ All required environment variables present");
+  console.log("[env] ✓ Environment variables validated");
 }
