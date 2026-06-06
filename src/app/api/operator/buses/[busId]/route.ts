@@ -10,6 +10,7 @@ const busSchema = z.object({
   totalSeats: z.number().min(1).optional(),
   amenities: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
+  charterOnly: z.boolean().optional(),
 });
 
 export async function GET(

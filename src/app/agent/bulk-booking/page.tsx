@@ -36,7 +36,7 @@ export default function AgentBulkBookingPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/cities").then(r => r.json()).then(d => setCities(d.cities ?? []));
+    fetch("/api/cities?limit=500").then(r => r.json()).then(d => setCities(Array.isArray(d) ? d : (d.cities ?? [])));
   }, []);
 
   async function doSearch(e: React.FormEvent) {

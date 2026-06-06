@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
 import { PageSpinner } from "@/components/ui/Spinner";
 
 const statusVariant: Record<string, "default" | "success" | "warning" | "danger" | "info"> = {
@@ -15,72 +13,86 @@ const statusVariant: Record<string, "default" | "success" | "warning" | "danger"
   DELAYED: "warning",
 };
 
+type SortField = "travelDate" | "route" | "bus" | "driver" | "status";
+
 export default function TripsPage() {
   const [trips, setTrips] = useState<any[]>([]);
-  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assignModal, setAssignModal] = useState<{ tripId: string } | null>(null);
-  const [selectedDriver, setSelectedDriver] = useState("");
-  const [assigning, setAssigning] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("travelDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showPast, setShowPast] = useState(false);
 
-  function loadTrips() {
-    return fetch("/api/operator/trips").then((r) => r.json()).then((t) => setTrips(Array.isArray(t) ? t : []));
+  const loadTrips = useCallback(() => {
+    const params = new URLSearchParams({ sort: sortField, dir: sortDir, ...(showPast ? { past: "1" } : {}) });
+    fetch(`/api/operator/trips?${params}`)
+      .then((r) => r.json())
+      .then((t) => { setTrips(Array.isArray(t) ? t : []); setLoading(false); });
+  }, [sortField, sortDir, showPast]);
+
+  useEffect(() => { loadTrips(); }, [loadTrips]);
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
   }
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/operator/trips").then((r) => r.json()),
-      fetch("/api/operator/drivers").then((r) => r.json()),
-    ]).then(([t, d]) => {
-      setTrips(Array.isArray(t) ? t : []);
-      setDrivers(Array.isArray(d) ? d : []);
-      setLoading(false);
-    });
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <span className="ml-1 text-gray-300">↕</span>;
+    return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  }
 
-    const timer = setInterval(loadTrips, 60_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  async function handleAssign() {
-    if (!assignModal || !selectedDriver) return;
-    setAssigning(true);
-    await fetch(`/api/operator/trips/${assignModal.tripId}/driver`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ driverId: selectedDriver }),
-    });
-    setAssigning(false);
-    setAssignModal(null);
-    loadTrips();
+  function SortTh({ field, label }: { field: SortField; label: string }) {
+    return (
+      <th
+        className="cursor-pointer select-none px-4 py-3 hover:text-gray-700"
+        onClick={() => toggleSort(field)}
+      >
+        {label}<SortIcon field={field} />
+      </th>
+    );
   }
 
   if (loading) return <PageSpinner />;
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Trips</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Trips</h1>
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showPast}
+            onChange={(e) => setShowPast(e.target.checked)}
+            className="rounded"
+          />
+          Show past trips
+        </label>
+      </div>
 
       <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Route</th>
-              <th className="px-4 py-3">Bus</th>
-              <th className="px-4 py-3">Driver</th>
+              <SortTh field="travelDate" label="Date" />
+              <SortTh field="route" label="Route" />
+              <SortTh field="bus" label="Bus" />
+              <SortTh field="driver" label="Driver" />
               <th className="px-4 py-3">Occupancy</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Action</th>
+              <SortTh field="status" label="Status" />
             </tr>
           </thead>
           <tbody>
             {trips.length === 0 && (
-              <tr><td colSpan={7} className="py-12 text-center text-gray-400">No trips found</td></tr>
+              <tr><td colSpan={6} className="py-12 text-center text-gray-400">No trips found</td></tr>
             )}
             {trips.map((trip) => (
               <tr key={trip.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">
-                  {new Date(trip.travelDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                  {new Date(trip.travelDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {trip.schedule?.route?.fromCity?.name} → {trip.schedule?.route?.toCity?.name}
@@ -94,18 +106,12 @@ export default function TripsPage() {
                     <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          trip.occupancyRate >= 90
-                            ? "bg-red-500"
-                            : trip.occupancyRate >= 60
-                            ? "bg-yellow-400"
-                            : "bg-green-500"
+                          trip.occupancyRate >= 90 ? "bg-red-500" : trip.occupancyRate >= 60 ? "bg-yellow-400" : "bg-green-500"
                         }`}
                         style={{ width: `${Math.min(trip.occupancyRate, 100)}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">
-                      {trip.bookedSeats}/{trip.totalSeats}
-                    </span>
+                    <span className="text-xs text-gray-500">{trip.bookedSeats}/{trip.totalSeats}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -113,44 +119,11 @@ export default function TripsPage() {
                     {trip.status.replace("_", " ")}
                   </Badge>
                 </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => { setAssignModal({ tripId: trip.id }); setSelectedDriver(trip.driverId ?? ""); }}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    {trip.driver ? "Reassign" : "Assign Driver"}
-                  </button>
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      <Modal
-        open={!!assignModal}
-        onClose={() => setAssignModal(null)}
-        title="Assign Driver"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setAssignModal(null)}>Cancel</Button>
-            <Button variant="primary" loading={assigning} onClick={handleAssign}>Assign</Button>
-          </>
-        }
-      >
-        <select
-          className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-          value={selectedDriver}
-          onChange={(e) => setSelectedDriver(e.target.value)}
-        >
-          <option value="">Select driver</option>
-          {drivers.map((d: any) => (
-            <option key={d.id} value={d.id}>
-              {d.user?.name} ({d.licenseNumber})
-            </option>
-          ))}
-        </select>
-      </Modal>
     </div>
   );
 }

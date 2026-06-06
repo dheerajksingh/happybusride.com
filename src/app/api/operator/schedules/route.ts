@@ -8,12 +8,19 @@ import { addDays, startOfDay } from "date-fns";
 const scheduleSchema = z.object({
   routeId: z.string().min(1),
   busId: z.string().min(1),
+  driverId: z.string().optional(),
   departureTime: z.string(),
   arrivalTime: z.string(),
   baseFare: z.number().positive(),
   recurrence: z.string().optional(),
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
   fareRules: z.array(z.object({ seatType: z.string(), price: z.number() })).optional(),
+  freightSpaces: z.array(z.object({
+    label: z.string(),
+    lengthCm: z.number(),
+    widthCm: z.number(),
+    heightCm: z.number(),
+  })).optional(),
 });
 
 export async function GET() {
@@ -24,10 +31,11 @@ export async function GET() {
   if (!operator) return NextResponse.json([]);
 
   const schedules = await prisma.schedule.findMany({
-    where: { route: { operatorId: operator.id } },
+    where: { bus: { operatorId: operator.id } },
     include: {
       route: { include: { fromCity: true, toCity: true } },
       bus: { select: { name: true, busType: true } },
+      driver: { include: { user: { select: { name: true } } } },
       _count: { select: { trips: true } },
     },
     orderBy: { departureTime: "asc" },
@@ -44,25 +52,27 @@ export async function POST(req: Request) {
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
   const body = await req.json();
-  const { fareRules, daysOfWeek, ...data } = scheduleSchema.parse(body);
+  const { fareRules, daysOfWeek, freightSpaces, driverId, ...data } = scheduleSchema.parse(body);
 
   const schedule = await prisma.schedule.create({
     data: {
       ...data,
+      driverId: driverId || null,
       departureTime: new Date(data.departureTime),
       arrivalTime: new Date(data.arrivalTime),
       daysOfWeek: daysOfWeek ?? [],
+      freightSpaces: freightSpaces ?? undefined,
       fareRules: fareRules ? { create: fareRules.map((r) => ({ ...r, seatType: r.seatType as SeatType })) } : undefined,
     },
   });
 
-  // Auto-generate trips for next 30 days, filtered by daysOfWeek if specified
+  // Auto-generate trips starting from tomorrow for next 30 days
   const dow = daysOfWeek ?? [];
   const tripData = [];
-  for (let d = 0; d <= 30; d++) {
+  for (let d = 1; d <= 30; d++) {
     const travelDate = startOfDay(addDays(new Date(), d));
     if (dow.length > 0 && !dow.includes(travelDate.getDay())) continue;
-    tripData.push({ scheduleId: schedule.id, travelDate, status: "SCHEDULED" as const });
+    tripData.push({ scheduleId: schedule.id, travelDate, driverId: driverId || null, status: "SCHEDULED" as const });
   }
   await prisma.trip.createMany({ data: tripData, skipDuplicates: true });
 

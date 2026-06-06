@@ -11,7 +11,7 @@ export default async function RoutesPage() {
   if (!operator) redirect("/operator/onboarding");
 
   const routes = await prisma.route.findMany({
-    where: { operatorId: operator.id },
+    where: { isActive: true },
     include: {
       fromCity: { select: { name: true } },
       toCity: { select: { name: true } },
@@ -24,23 +24,17 @@ export default async function RoutesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Routes ({routes.length})</h1>
-        <Link
-          href="/operator/routes/new"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          + Add Route
-        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Routes ({routes.length})</h1>
+          <p className="text-sm text-gray-500">Routes are managed by admin. Select one to create a schedule.</p>
+        </div>
       </div>
 
       {routes.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm">
           <p className="mb-2 text-4xl">🗺️</p>
-          <h3 className="font-semibold text-gray-900">No routes yet</h3>
-          <p className="mt-1 text-sm text-gray-500">Create your first route to start scheduling trips.</p>
-          <Link href="/operator/routes/new" className="mt-4 inline-block text-sm font-medium text-blue-600">
-            Add Route →
-          </Link>
+          <h3 className="font-semibold text-gray-900">No routes available</h3>
+          <p className="mt-1 text-sm text-gray-500">Contact admin to add routes for your region.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -57,12 +51,6 @@ export default async function RoutesPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Link
-                  href={`/operator/routes/${route.id}`}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Edit
-                </Link>
                 <Link
                   href={`/operator/schedules/new?routeId=${route.id}`}
                   className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"

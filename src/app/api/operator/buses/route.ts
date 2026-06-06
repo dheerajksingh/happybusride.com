@@ -12,15 +12,25 @@ const busSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session || session.user.role !== "OPERATOR") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
   if (!operator) return NextResponse.json([]);
 
+  const { searchParams } = new URL(req.url);
+  const availableOnly = searchParams.get("available") === "true";
+
+  const scheduledBusIds = availableOnly
+    ? (await prisma.schedule.findMany({ where: { bus: { operatorId: operator.id }, isActive: true }, select: { busId: true } })).map((s) => s.busId)
+    : [];
+
   const buses = await prisma.bus.findMany({
-    where: { operatorId: operator.id },
+    where: {
+      operatorId: operator.id,
+      ...(availableOnly ? { id: { notIn: scheduledBusIds }, charterOnly: false } : {}),
+    },
     include: { _count: { select: { seats: true, schedules: true } } },
     orderBy: { createdAt: "desc" },
   });

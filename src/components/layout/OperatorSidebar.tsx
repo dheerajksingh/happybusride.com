@@ -17,6 +17,7 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/operator/trips", label: "Trips", icon: "🎫" },
     { href: "/operator/drivers", label: "Drivers", icon: "👤" },
     { href: "/operator/agents", label: "Agents", icon: "🤝" },
+    { href: "/operator/messages", label: "Messages", icon: "💬" },
     { href: "/operator/fares", label: "Fare Rules", icon: "💲" },
     { href: "/operator/earnings", label: "Earnings", icon: "💰" },
   ],
@@ -61,6 +62,19 @@ const SERVICE_LABELS: Record<Service, string> = {
 export function OperatorSidebar() {
   const pathname = usePathname();
   const [service, setService] = useState<Service>("tickets");
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/operator/messages/unread")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setUnreadMessages(d.count ?? 0));
+    const t = setInterval(() => {
+      fetch("/api/operator/messages/unread")
+        .then(r => r.ok ? r.json() : { count: 0 })
+        .then(d => setUnreadMessages(d.count ?? 0));
+    }, 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("operatorService") as Service | null;
@@ -137,7 +151,12 @@ export function OperatorSidebar() {
                 }`}
               >
                 <span>{item.icon}</span>
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.href === "/operator/messages" && unreadMessages > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white leading-none">
+                    {unreadMessages}
+                  </span>
+                )}
               </Link>
             );
           })}

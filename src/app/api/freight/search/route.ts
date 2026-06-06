@@ -362,8 +362,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "from, to, date and weight are required" }, { status: 400 });
   }
 
-  const travelDate = new Date(dateStr);
-  travelDate.setHours(0, 0, 0, 0);
+  // Parse as UTC midnight to match @db.Date storage
+  const travelDate = new Date(dateStr + "T00:00:00.000Z");
 
   const volumeCm3 = lengthCm * breadthCm * heightCm;
 

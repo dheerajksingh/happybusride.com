@@ -335,6 +335,7 @@ model Operator {
   earnings       OperatorEarning[]
   corporateBids  CorporateOperatorBid[]
   agents         AgentOperator[]
+  agentMessages  AgentOperatorMessage[]
 
   @@map("operators")
 }
@@ -357,6 +358,7 @@ model Driver {
   updatedAt     DateTime @updatedAt
 
   trips      Trip[]
+  schedules  Schedule[]
   attendance DriverAttendance[]
 
   @@map("drivers")
@@ -399,6 +401,7 @@ model Bus {
   updatedAt       DateTime  @updatedAt
 
   isCharterAvailable    Boolean  @default(false)
+  charterOnly           Boolean  @default(false)
   charterRatePerDay     Decimal? @db.Decimal(10, 2)
   charterRatePerKm      Decimal? @db.Decimal(10, 2)
   charterDepositPercent Int?
@@ -488,9 +491,9 @@ model City {
 // ============================================================
 
 model Route {
-  id           String   @id @default(cuid())
-  operatorId   String
-  operator     Operator @relation(fields: [operatorId], references: [id])
+  id           String    @id @default(cuid())
+  operatorId   String?
+  operator     Operator? @relation(fields: [operatorId], references: [id])
   fromCityId   String
   fromCity     City     @relation("FromCity", fields: [fromCityId], references: [id])
   toCityId     String
@@ -538,11 +541,14 @@ model Schedule {
   route         Route    @relation(fields: [routeId], references: [id])
   busId         String
   bus           Bus      @relation(fields: [busId], references: [id])
+  driverId      String?
+  driver        Driver?  @relation(fields: [driverId], references: [id])
   departureTime DateTime
   arrivalTime   DateTime
   recurrence    String?
   daysOfWeek    Int[]    @default([])
   baseFare      Decimal  @db.Decimal(10, 2)
+  freightSpaces Json?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -1085,6 +1091,7 @@ model Agent {
   freightBookings    FreightBooking[]      @relation("AgentFreightBooker")
   passengerBookings  AgentPassengerBooking[]
   earnings           AgentEarning[]
+  messages           AgentOperatorMessage[]
 
   @@map("agents")
 }
@@ -1459,4 +1466,25 @@ model CabBooking {
   updatedAt     DateTime             @updatedAt
 
   @@map("cab_bookings")
+}
+
+// ============================================================
+// AGENT-OPERATOR MESSAGING
+// ============================================================
+
+model AgentOperatorMessage {
+  id               String    @id @default(cuid())
+  agentId          String
+  agent            Agent     @relation(fields: [agentId], references: [id])
+  operatorId       String
+  operator         Operator  @relation(fields: [operatorId], references: [id])
+  fromAgent        Boolean
+  message          String
+  freightBookingId String?
+  isReadByAgent    Boolean   @default(false)
+  isReadByOperator Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@index([agentId, operatorId])
+  @@map("agent_operator_messages")
 }

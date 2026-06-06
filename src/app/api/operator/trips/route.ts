@@ -11,10 +11,29 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
-  const limit = 20;
+  const limit = 50;
+  const sortField = searchParams.get("sort") ?? "travelDate";
+  const sortDir = (searchParams.get("dir") ?? "asc") as "asc" | "desc";
+  const showPast = searchParams.get("past") === "1";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const orderBy: any = (() => {
+    switch (sortField) {
+      case "route": return [{ schedule: { route: { fromCity: { name: sortDir } } } }];
+      case "bus": return [{ schedule: { bus: { name: sortDir } } }];
+      case "driver": return [{ driver: { user: { name: sortDir } } }];
+      case "status": return [{ status: sortDir }];
+      default: return [{ travelDate: sortDir }];
+    }
+  })();
 
   const trips = await prisma.trip.findMany({
-    where: { schedule: { bus: { operatorId: operator.id } } },
+    where: {
+      schedule: { bus: { operatorId: operator.id } },
+      ...(showPast ? {} : { travelDate: { gte: today } }),
+    },
     include: {
       schedule: {
         include: {
@@ -25,7 +44,7 @@ export async function GET(req: Request) {
       driver: { include: { user: { select: { name: true } } } },
       _count: { select: { bookings: true } },
     },
-    orderBy: [{ travelDate: "desc" }],
+    orderBy,
     skip: (page - 1) * limit,
     take: limit,
   });

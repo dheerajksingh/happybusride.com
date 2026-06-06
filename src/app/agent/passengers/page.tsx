@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 
 export default function AgentPassengersPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +22,12 @@ export default function AgentPassengersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Passenger Bookings</h1>
           <p className="text-sm text-gray-500">Seat bookings you have made on behalf of passengers</p>
         </div>
-        {/* Bulk booking will be added here */}
+        <button
+          onClick={() => router.push("/agent/bulk-booking")}
+          className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-600"
+        >
+          + Book Passenger Ticket
+        </button>
       </div>
 
       {bookings.length === 0 ? (

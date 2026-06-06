@@ -4,8 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const stopSchema = z.object({
-  cityId: z.string(),
-  stopOrder: z.number(),
+  cityId: z.string().min(1),
+  stopOrder: z.number().int().min(1),
   stopName: z.string().min(1),
   arrivalOffset: z.number().optional(),
   departureOffset: z.number().optional(),
@@ -15,25 +15,16 @@ const routeSchema = z.object({
   fromCityId: z.string().min(1),
   toCityId: z.string().min(1),
   name: z.string().min(1),
-  distanceKm: z.number().optional(),
-  durationMins: z.number().optional(),
+  distanceKm: z.number().positive().optional(),
+  durationMins: z.number().positive().optional(),
   stops: z.array(stopSchema).min(2),
 });
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "OPERATOR") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
-  if (!operator) return NextResponse.json([]);
-
-  const { searchParams } = new URL(req.url);
-  const all = searchParams.get("all") === "true";
+  if (!session || session.user.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const routes = await prisma.route.findMany({
-    where: all
-      ? { isActive: true }
-      : { operatorId: operator.id },
     include: {
       fromCity: { select: { name: true } },
       toCity: { select: { name: true } },
@@ -48,10 +39,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "OPERATOR") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
-  if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
+  if (!session || session.user.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
   const data = routeSchema.parse(body);
@@ -60,7 +48,7 @@ export async function POST(req: Request) {
   const route = await prisma.route.create({
     data: {
       ...routeData,
-      operatorId: operator.id,
+      // operatorId is null for admin-created routes
       stops: { create: stops },
     },
     include: { stops: true, fromCity: true, toCity: true },

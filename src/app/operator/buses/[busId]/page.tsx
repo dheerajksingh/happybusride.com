@@ -30,6 +30,7 @@ export default function EditBusPage({ params }: { params: Promise<{ busId: strin
     totalSeats: 40,
     amenities: [] as string[],
     isActive: true,
+    charterOnly: false,
   });
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function EditBusPage({ params }: { params: Promise<{ busId: strin
           totalSeats: bus.totalSeats,
           amenities: bus.amenities ?? [],
           isActive: bus.isActive,
+          charterOnly: bus.charterOnly ?? false,
         });
       })
       .finally(() => setLoading(false));
@@ -142,6 +144,19 @@ export default function EditBusPage({ params }: { params: Promise<{ busId: strin
             className="h-4 w-4"
           />
           <label htmlFor="isActive" className="text-sm text-gray-700">Bus is active</label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="charterOnly"
+            checked={form.charterOnly}
+            onChange={(e) => setForm((f) => ({ ...f, charterOnly: e.target.checked }))}
+            className="h-4 w-4"
+          />
+          <label htmlFor="charterOnly" className="text-sm text-gray-700">
+            Charter only{" "}
+            <span className="text-xs text-gray-400">(excludes from daily trip scheduling)</span>
+          </label>
         </div>
         <div className="flex gap-3 pt-2">
           <Button type="submit" variant="primary" loading={saving} className="flex-1">Save Changes</Button>

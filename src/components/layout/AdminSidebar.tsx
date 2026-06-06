@@ -12,6 +12,7 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
   tickets: [
     { href: "/admin", label: "Dashboard", icon: "📊" },
     { href: "/admin/operators", label: "Operators", icon: "🏢" },
+    { href: "/admin/routes", label: "Routes", icon: "🗺️" },
     { href: "/admin/users", label: "Users", icon: "👥" },
     { href: "/admin/bookings", label: "Bookings", icon: "🎫" },
     { href: "/admin/disputes", label: "Disputes", icon: "⚠️" },

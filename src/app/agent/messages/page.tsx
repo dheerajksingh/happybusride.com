@@ -1,0 +1,111 @@
+"use client";
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
+
+export default function AgentMessagesPage() {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [operators, setOperators] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOp, setSelectedOp] = useState("");
+  const [msgText, setMsgText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function loadMessages() {
+    const res = await fetch("/api/agent/messages");
+    const d = await res.json();
+    setMessages(d.messages ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadMessages();
+    fetch("/api/agent/operators").then(r => r.json()).then(d => setOperators(d.operators ?? []));
+  }, []);
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedOp || !msgText.trim()) return;
+    setSending(true);
+    await fetch("/api/agent/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operatorId: selectedOp, message: msgText }),
+    });
+    setMsgText("");
+    setSending(false);
+    await loadMessages();
+  }
+
+  if (loading) return <div className="py-12 text-center text-gray-400">Loading…</div>;
+
+  return (
+    <div className="max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+        <p className="text-sm text-gray-500">Communicate with operators about freight bookings and trips</p>
+      </div>
+
+      {/* Send message */}
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 font-semibold text-gray-900 text-sm">New Message</h2>
+        <form onSubmit={sendMessage} className="space-y-3">
+          <select
+            className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            value={selectedOp}
+            onChange={e => setSelectedOp(e.target.value)}
+            required
+          >
+            <option value="">Select operator</option>
+            {operators.map((op: any) => (
+              <option key={op.id} value={op.id}>{op.companyName}</option>
+            ))}
+          </select>
+          <textarea
+            className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            rows={3}
+            placeholder="Type your message… (e.g. freight details, arrival time, bus ID)"
+            value={msgText}
+            onChange={e => setMsgText(e.target.value)}
+            required
+          />
+          <button
+            type="submit"
+            disabled={sending}
+            className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send Message"}
+          </button>
+        </form>
+      </div>
+
+      {/* Message thread */}
+      {messages.length === 0 ? (
+        <div className="rounded-xl bg-white border border-gray-200 p-10 text-center">
+          <div className="text-3xl mb-2">💬</div>
+          <h3 className="font-semibold text-gray-900">No messages yet</h3>
+          <p className="text-sm text-gray-500 mt-1">Send your first message to an operator above.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {messages.map((m: any) => (
+            <div
+              key={m.id}
+              className={`rounded-xl p-4 text-sm ${m.fromAgent ? "bg-orange-50 border border-orange-100 ml-8" : "bg-white border border-gray-200"}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold text-gray-800">
+                  {m.fromAgent ? "You" : m.operator?.companyName}
+                </span>
+                <span className="text-xs text-gray-400">{format(new Date(m.createdAt), "d MMM, h:mm a")}</span>
+              </div>
+              {m.freightBookingId && (
+                <div className="mb-1 text-xs text-blue-600">Re: freight booking</div>
+              )}
+              <p className="text-gray-700">{m.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
