@@ -12,7 +12,7 @@ export default async function SchedulesPage() {
   if (!operator) redirect("/operator/onboarding");
 
   const schedules = await prisma.schedule.findMany({
-    where: { route: { operatorId: operator.id } },
+    where: { bus: { operatorId: operator.id } },
     include: {
       route: { include: { fromCity: true, toCity: true } },
       bus: { select: { name: true, busType: true } },

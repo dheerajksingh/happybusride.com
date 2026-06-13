@@ -9,6 +9,51 @@ import { PageSpinner } from "@/components/ui/Spinner";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+type StopTiming = { arrival: string; stoppage: string };
+
+function addMins(time: string, mins: number): string {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + mins;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function diffMins(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const [ah, am] = a.split(":").map(Number);
+  const [bh, bm] = b.split(":").map(Number);
+  let diff = (bh * 60 + bm) - (ah * 60 + am);
+  if (diff < 0) diff += 24 * 60;
+  return diff;
+}
+
+function extractTime(datetimeLocal: string): string {
+  return datetimeLocal.includes("T") ? datetimeLocal.split("T")[1].slice(0, 5) : "";
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35);
+}
+
+function segmentDistKm(stop: any, prevStop: any): string {
+  if (stop.distanceFromOriginKm != null && prevStop.distanceFromOriginKm != null) {
+    return `${stop.distanceFromOriginKm - prevStop.distanceFromOriginKm} km`;
+  }
+  const lat1 = Number(prevStop.city?.latitude);
+  const lng1 = Number(prevStop.city?.longitude);
+  const lat2 = Number(stop.city?.latitude);
+  const lng2 = Number(stop.city?.longitude);
+  if (lat1 && lng1 && lat2 && lng2) {
+    return `~${haversineKm(lat1, lng1, lat2, lng2)} km`;
+  }
+  return "—";
+}
+
 export default function EditSchedulePage() {
   const router = useRouter();
   const { scheduleId } = useParams<{ scheduleId: string }>();
@@ -17,6 +62,8 @@ export default function EditSchedulePage() {
   const [saving, setSaving] = useState(false);
   const [routes, setRoutes] = useState<any[]>([]);
   const [buses, setBuses] = useState<any[]>([]);
+  const [routeStops, setRouteStops] = useState<any[]>([]);
+  const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
   const [form, setForm] = useState({
     routeId: "",
     busId: "",
@@ -31,7 +78,7 @@ export default function EditSchedulePage() {
   useEffect(() => {
     Promise.all([
       fetch(`/api/operator/schedules/${scheduleId}`).then((r) => r.json()),
-      fetch("/api/operator/routes").then((r) => r.json()),
+      fetch("/api/operator/routes?all=true").then((r) => r.json()),
       fetch("/api/operator/buses").then((r) => r.json()),
     ]).then(([s, r, b]) => {
       if (s && !s.error) {
@@ -50,6 +97,22 @@ export default function EditSchedulePage() {
           isActive: s.isActive,
         });
         setDaysOfWeek(s.daysOfWeek ?? []);
+
+        // Load stops from the route included in schedule response
+        const stops = s.route?.stops ?? [];
+        const depTime = toLocal(dep).split("T")[1]?.slice(0, 5) ?? "";
+        setRouteStops(stops);
+        const timings: Record<string, StopTiming> = {};
+        stops.forEach((stop: any, idx: number) => {
+          if (idx === 0) {
+            timings[stop.id] = { arrival: depTime, stoppage: "0" };
+          } else {
+            const arr = stop.arrivalOffset ? addMins(depTime, stop.arrivalOffset) : "";
+            const stoppageMins = (stop.departureOffset ?? 0) - (stop.arrivalOffset ?? 0);
+            timings[stop.id] = { arrival: arr, stoppage: String(Math.max(0, stoppageMins)) };
+          }
+        });
+        setStopTimings(timings);
       }
       setRoutes(Array.isArray(r) ? r : []);
       setBuses(Array.isArray(b) ? b : []);
@@ -57,15 +120,49 @@ export default function EditSchedulePage() {
     });
   }, [scheduleId]);
 
+  // Reload stops when route changes manually
+  useEffect(() => {
+    if (!form.routeId || routes.length === 0) return;
+    const route = routes.find((r: any) => r.id === form.routeId);
+    if (!route) return;
+    const stops = route.stops ?? [];
+    const depTime = extractTime(form.departureTime);
+    setRouteStops(stops);
+    const timings: Record<string, StopTiming> = {};
+    stops.forEach((s: any, idx: number) => {
+      if (idx === 0) {
+        timings[s.id] = { arrival: depTime, stoppage: "0" };
+      } else {
+        const arr = s.arrivalOffset ? addMins(depTime, s.arrivalOffset) : "";
+        const stoppageMins = (s.departureOffset ?? 0) - (s.arrivalOffset ?? 0);
+        timings[s.id] = { arrival: arr, stoppage: String(Math.max(0, stoppageMins)) };
+      }
+    });
+    setStopTimings(timings);
+  }, [form.routeId, routes]);
+
   function toggleDay(day: number) {
     setDaysOfWeek((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
     );
   }
 
+  function updateTiming(stopId: string, field: keyof StopTiming, value: string) {
+    setStopTimings((prev) => ({ ...prev, [stopId]: { ...prev[stopId], [field]: value } }));
+  }
+
+  const depTimeOnly = extractTime(form.departureTime);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const stopOffsetsPayload = routeStops.map((s: any, idx: number) => {
+      if (idx === 0) return { stopId: s.id, arrivalOffset: 0, departureOffset: 0 };
+      const t = stopTimings[s.id];
+      const arrOffset = diffMins(depTimeOnly, t?.arrival ?? depTimeOnly);
+      const stoppageMins = Number(t?.stoppage ?? 0);
+      return { stopId: s.id, arrivalOffset: arrOffset, departureOffset: arrOffset + stoppageMins };
+    });
     const res = await fetch(`/api/operator/schedules/${scheduleId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -74,6 +171,7 @@ export default function EditSchedulePage() {
         baseFare: Number(form.baseFare),
         daysOfWeek,
         regenerateTrips,
+        stopOffsets: stopOffsetsPayload,
       }),
     });
     setSaving(false);
@@ -149,6 +247,95 @@ export default function EditSchedulePage() {
             />
           </div>
         </div>
+
+        {/* Stop times */}
+        {routeStops.length > 0 && (
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Stop Times</label>
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Stop</th>
+                    <th className="px-3 py-2 text-center">Arrival</th>
+                    <th className="px-3 py-2 text-center">Stoppage (min)</th>
+                    <th className="px-3 py-2 text-center">Departure</th>
+                    <th className="px-3 py-2 text-right">Dist from prev</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {routeStops.map((stop: any, idx: number) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === routeStops.length - 1;
+                    const t = stopTimings[stop.id] ?? { arrival: "", stoppage: "0" };
+                    const stoppageMins = Number(t.stoppage || 0);
+                    const departureDisplay = isFirst
+                      ? depTimeOnly
+                      : t.arrival ? addMins(t.arrival, stoppageMins) : "—";
+
+                    const prevStop = idx > 0 ? routeStops[idx - 1] : null;
+                    const distFromPrev = prevStop ? segmentDistKm(stop, prevStop) : "—";
+
+                    return (
+                      <tr key={stop.id} className={isFirst ? "bg-blue-50/30" : isLast ? "bg-green-50/30" : ""}>
+                        <td className="px-3 py-2.5 font-medium text-gray-800">
+                          {stop.stopName}
+                          {isFirst && <span className="ml-1.5 text-xs text-blue-500 font-normal">(origin)</span>}
+                          {isLast && <span className="ml-1.5 text-xs text-green-600 font-normal">(destination)</span>}
+                        </td>
+
+                        {/* Arrival — hidden for origin */}
+                        <td className="px-3 py-2.5">
+                          {isFirst ? (
+                            <span className="block text-center text-xs text-gray-400">—</span>
+                          ) : (
+                            <input
+                              type="time"
+                              className="mx-auto block w-24 rounded border border-gray-300 px-2 py-1 text-center text-xs"
+                              value={t.arrival}
+                              onChange={(e) => updateTiming(stop.id, "arrival", e.target.value)}
+                            />
+                          )}
+                        </td>
+
+                        {/* Stoppage — hidden for origin and destination */}
+                        <td className="px-3 py-2.5">
+                          {isFirst || isLast ? (
+                            <span className="block text-center text-xs text-gray-400">—</span>
+                          ) : (
+                            <input
+                              type="number"
+                              min={0}
+                              className="mx-auto block w-16 rounded border border-gray-300 px-2 py-1 text-center text-xs"
+                              value={t.stoppage}
+                              onChange={(e) => updateTiming(stop.id, "stoppage", e.target.value)}
+                            />
+                          )}
+                        </td>
+
+                        {/* Departure — hidden for destination */}
+                        <td className="px-3 py-2.5 text-center">
+                          {isLast ? (
+                            <span className="text-xs text-gray-400">—</span>
+                          ) : (
+                            <span className="inline-block rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                              {departureDisplay}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-2.5 text-right text-xs text-gray-500">
+                          {distFromPrev}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-1 text-xs text-gray-400">Departure = Arrival + Stoppage. Distance calculated from route stop data.</p>
+          </div>
+        )}
 
         <Input
           label="Base Fare (₹) *"

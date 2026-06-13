@@ -1,40 +1,30 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-interface City { id: string; name: string; state: string; }
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
+import type { City } from "@/components/ui/CityAutocomplete";
 
 export default function AgentRegisterPage() {
   const router = useRouter();
-  const [cities, setCities] = useState<City[]>([]);
-  const [cityQuery, setCityQuery] = useState("");
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     fullName: "", email: "", phone: "", whatsappNumber: "",
-    address: "", cityId: "", password: "", confirmPassword: "",
+    address: "", password: "", confirmPassword: "",
   });
-
-  useEffect(() => {
-    if (cityQuery.length < 1) { setCities([]); return; }
-    const t = setTimeout(async () => {
-      const res = await fetch(`/api/cities?q=${encodeURIComponent(cityQuery)}`);
-      if (res.ok) setCities(await res.json());
-    }, 200);
-    return () => clearTimeout(t);
-  }, [cityQuery]);
 
   function upd(f: string, v: string) { setForm(p => ({ ...p, [f]: v })); }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirmPassword) { setError("Passwords do not match."); return; }
-    if (!form.cityId) { setError("Please select a city from the dropdown."); return; }
+    if (!selectedCity) { setError("Please select a city."); return; }
     setError(""); setLoading(true);
     const res = await fetch("/api/agent/register", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, whatsappNumber: form.whatsappNumber || undefined }),
+      body: JSON.stringify({ ...form, cityId: selectedCity.id, whatsappNumber: form.whatsappNumber || undefined }),
     });
     const data = await res.json();
     setLoading(false);
@@ -76,22 +66,14 @@ export default function AgentRegisterPage() {
             <label className={labelCls}>Address *</label>
             <input className={inputCls} required value={form.address} onChange={e => upd("address", e.target.value)} placeholder="Your business address" />
           </div>
-          <div className="relative">
-            <label className={labelCls}>Operating City *</label>
-            <input className={inputCls} value={cityQuery}
-              onChange={e => { setCityQuery(e.target.value); upd("cityId", ""); }}
-              placeholder="Search city…" />
-            {cities.length > 0 && !form.cityId && (
-              <ul className="absolute z-50 mt-1 max-h-44 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                {cities.map(c => (
-                  <li key={c.id} onClick={() => { upd("cityId", c.id); setCityQuery(`${c.name}, ${c.state}`); setCities([]); }}
-                    className="cursor-pointer px-3 py-2 text-sm hover:bg-orange-50">
-                    {c.name} <span className="text-gray-400">— {c.state}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {form.cityId && <p className="mt-1 text-xs text-green-600">✅ City selected</p>}
+          <div>
+            <CityAutocomplete
+              label="Operating City *"
+              value={selectedCity ? `${selectedCity.name}, ${selectedCity.state}` : ""}
+              onChange={setSelectedCity}
+              placeholder="Search city…"
+            />
+            {selectedCity && <p className="mt-1 text-xs text-green-600">✅ {selectedCity.name} selected</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

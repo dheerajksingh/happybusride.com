@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calcCumulativeDistances } from "@/lib/stop-distances";
 
 const stopSchema = z.object({
   cityId: z.string().min(1),
@@ -51,8 +52,18 @@ export async function POST(req: Request) {
       // operatorId is null for admin-created routes
       stops: { create: stops },
     },
-    include: { stops: true, fromCity: true, toCity: true },
+    include: { stops: { orderBy: { stopOrder: "asc" } }, fromCity: true, toCity: true },
   });
+
+  // Back-fill cumulative distances from CityDistance cache
+  const cumulative = await calcCumulativeDistances(route.stops);
+  await Promise.all(
+    route.stops.map((stop, i) =>
+      cumulative[i] !== null
+        ? prisma.routeStop.update({ where: { id: stop.id }, data: { distanceFromOriginKm: cumulative[i] } })
+        : Promise.resolve()
+    )
+  );
 
   return NextResponse.json(route, { status: 201 });
 }

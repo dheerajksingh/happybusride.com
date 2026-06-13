@@ -9,6 +9,8 @@ interface SearchResult {
   route: {
     from: string;
     to: string;
+    fromStopName: string | null;
+    toStopName: string | null;
     durationMins: number | null;
     distanceKm: number | null;
   };
@@ -18,8 +20,8 @@ interface SearchResult {
     totalSeats: number;
     amenities: string[];
   };
-  departureTime: string;
-  arrivalTime: string;
+  departureTime: string;  // time at boarding stop
+  arrivalTime: string;    // time at alighting stop
   baseFare: number;
   availableSeats: number;
 }
@@ -27,7 +29,7 @@ interface SearchResult {
 export function BusCard({ result, date }: { result: SearchResult; date: string }) {
   const dep = new Date(result.departureTime);
   const arr = new Date(result.arrivalTime);
-  const durationLabel = result.route.durationMins
+  const durationLabel = result.route.durationMins && result.route.durationMins > 0
     ? `${Math.floor(result.route.durationMins / 60)}h ${result.route.durationMins % 60}m`
     : null;
 
@@ -39,19 +41,23 @@ export function BusCard({ result, date }: { result: SearchResult; date: string }
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          {/* Operator / Bus name */}
+          {/* Bus name */}
           <div className="mb-2 flex items-center gap-2">
             <span className="font-semibold text-gray-900">{result.bus.name}</span>
             <Badge variant={isAC ? "info" : "default"}>{busTypeLabel}</Badge>
             {isSleeper && <Badge variant="default">Sleeper</Badge>}
           </div>
 
-          {/* Times */}
+          {/* Times — adjusted to boarding/alighting stop */}
           <div className="flex items-center gap-3 text-sm">
             <div className="text-center">
               <p className="text-xl font-bold text-gray-900">{format(dep, "HH:mm")}</p>
-              <p className="text-xs text-gray-500">{result.route.from}</p>
+              <p className="text-xs font-medium text-gray-700">{result.route.from}</p>
+              {result.route.fromStopName && result.route.fromStopName !== result.route.from && (
+                <p className="text-xs text-gray-400">{result.route.fromStopName}</p>
+              )}
             </div>
+
             <div className="flex-1 text-center text-xs text-gray-400">
               {durationLabel && <p>{durationLabel}</p>}
               <div className="flex items-center gap-1">
@@ -59,11 +65,17 @@ export function BusCard({ result, date }: { result: SearchResult; date: string }
                 <span>🚌</span>
                 <div className="h-px flex-1 bg-gray-200" />
               </div>
-              {result.route.distanceKm && <p>{result.route.distanceKm} km</p>}
+              {result.route.distanceKm != null && result.route.distanceKm > 0 && (
+                <p>{result.route.distanceKm} km</p>
+              )}
             </div>
+
             <div className="text-center">
               <p className="text-xl font-bold text-gray-900">{format(arr, "HH:mm")}</p>
-              <p className="text-xs text-gray-500">{result.route.to}</p>
+              <p className="text-xs font-medium text-gray-700">{result.route.to}</p>
+              {result.route.toStopName && result.route.toStopName !== result.route.to && (
+                <p className="text-xs text-gray-400">{result.route.toStopName}</p>
+              )}
             </div>
           </div>
 

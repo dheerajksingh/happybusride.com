@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { SeatType } from "@prisma/client";
 import { addDays, startOfDay } from "date-fns";
 
+const stopOffsetSchema = z.object({
+  stopId: z.string(),
+  arrivalOffset: z.number().int().min(0),
+  departureOffset: z.number().int().min(0),
+});
+
 const updateSchema = z.object({
   routeId: z.string().min(1).optional(),
   busId: z.string().min(1).optional(),
@@ -15,6 +21,7 @@ const updateSchema = z.object({
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
   isActive: z.boolean().optional(),
   regenerateTrips: z.boolean().optional(),
+  stopOffsets: z.array(stopOffsetSchema).optional(),
 });
 
 type Params = { params: Promise<{ scheduleId: string }> };
@@ -29,13 +36,13 @@ export async function GET(_req: Request, { params }: Params) {
   if (!operator) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const schedule = await prisma.schedule.findFirst({
-    where: { id: scheduleId, route: { operatorId: operator.id } },
+    where: { id: scheduleId, bus: { operatorId: operator.id } },
     include: {
       route: {
         include: {
           fromCity: true,
           toCity: true,
-          stops: { orderBy: { stopOrder: "asc" } },
+          stops: { include: { city: { select: { name: true, latitude: true, longitude: true } } }, orderBy: { stopOrder: "asc" } },
         },
       },
       bus: { select: { id: true, name: true, busType: true, totalSeats: true } },
@@ -64,14 +71,14 @@ export async function PUT(req: Request, { params }: Params) {
   const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
   if (!operator) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Verify ownership
+  // Verify ownership via bus (admin-created routes have null operatorId)
   const existing = await prisma.schedule.findFirst({
-    where: { id: scheduleId, route: { operatorId: operator.id } },
+    where: { id: scheduleId, bus: { operatorId: operator.id } },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const { regenerateTrips, daysOfWeek, ...data } = updateSchema.parse(body);
+  const { regenerateTrips, daysOfWeek, stopOffsets, ...data } = updateSchema.parse(body);
 
   const updateData: Record<string, unknown> = { ...data };
   if (data.departureTime) updateData.departureTime = new Date(data.departureTime);
@@ -107,6 +114,16 @@ export async function PUT(req: Request, { params }: Params) {
       tripData.push({ scheduleId, travelDate, status: "SCHEDULED" as const });
     }
     await prisma.trip.createMany({ data: tripData, skipDuplicates: true });
+  }
+
+  // Save stop time offsets back to route_stops
+  if (stopOffsets && stopOffsets.length > 0) {
+    await Promise.all(stopOffsets.map((s) =>
+      prisma.routeStop.update({
+        where: { id: s.stopId },
+        data: { arrivalOffset: s.arrivalOffset, departureOffset: s.departureOffset },
+      })
+    ));
   }
 
   return NextResponse.json(schedule);

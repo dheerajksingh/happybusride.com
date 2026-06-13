@@ -89,8 +89,15 @@ export function SearchForm() {
   const router = useRouter();
   const [from, setFrom] = useState<City | null>(null);
   const [to, setTo] = useState<City | null>(null);
-  const [date, setDate] = useState(format(addDays(new Date(), 1), "yyyy-MM-dd"));
+  const [date, setDate] = useState("");
+  const [minDate, setMinDate] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const today = new Date();
+    setMinDate(format(today, "yyyy-MM-dd"));
+    setDate(format(addDays(today, 1), "yyyy-MM-dd"));
+  }, []);
 
   function swap() {
     const tmp = from;
@@ -138,7 +145,7 @@ export function SearchForm() {
           type="date"
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           value={date}
-          min={format(new Date(), "yyyy-MM-dd")}
+          min={minDate}
           onChange={(e) => setDate(e.target.value)}
         />
       </div>

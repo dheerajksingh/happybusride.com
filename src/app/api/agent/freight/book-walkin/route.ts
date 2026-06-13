@@ -77,8 +77,6 @@ export async function POST(req: NextRequest) {
       await tx.passengerProfile.create({
         data: { userId: walkinUser.id, address: body.sender.address },
       });
-    } else if (walkinUser.role !== "PASSENGER") {
-      throw new Error("Phone number is registered to a non-passenger account");
     }
 
     // ── Create freight booking ────────────────────────────────

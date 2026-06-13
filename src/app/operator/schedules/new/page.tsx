@@ -8,8 +8,55 @@ import { Input } from "@/components/ui/Input";
 import { Suspense } from "react";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 type FreightSpace = { label: string; lengthCm: number; widthCm: number; heightCm: number };
+type StopTiming = { arrival: string; stoppage: string }; // arrival = "HH:MM", stoppage = minutes
+
+// Add minutes to "HH:MM", returns "HH:MM" (handles midnight crossing)
+function addMins(time: string, mins: number): string {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + mins;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// Difference in minutes (b - a), handles overnight (result always >= 0)
+function diffMins(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const [ah, am] = a.split(":").map(Number);
+  const [bh, bm] = b.split(":").map(Number);
+  let diff = (bh * 60 + bm) - (ah * 60 + am);
+  if (diff < 0) diff += 24 * 60;
+  return diff;
+}
+
+function extractTime(datetimeLocal: string): string {
+  return datetimeLocal.includes("T") ? datetimeLocal.split("T")[1].slice(0, 5) : "";
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35);
+}
+
+function segmentDistKm(stop: any, prevStop: any): string {
+  // Prefer stored cumulative distances
+  if (stop.distanceFromOriginKm != null && prevStop.distanceFromOriginKm != null) {
+    return `${stop.distanceFromOriginKm - prevStop.distanceFromOriginKm} km`;
+  }
+  // Fall back to Haversine from city coordinates
+  const lat1 = Number(prevStop.city?.latitude);
+  const lng1 = Number(prevStop.city?.longitude);
+  const lat2 = Number(stop.city?.latitude);
+  const lng2 = Number(stop.city?.longitude);
+  if (lat1 && lng1 && lat2 && lng2) {
+    return `~${haversineKm(lat1, lng1, lat2, lng2)} km`;
+  }
+  return "—";
+}
 
 function NewScheduleForm() {
   const router = useRouter();
@@ -22,20 +69,23 @@ function NewScheduleForm() {
   const [loading, setLoading] = useState(false);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [freightSpaces, setFreightSpaces] = useState<FreightSpace[]>([]);
+  const [routeStops, setRouteStops] = useState<any[]>([]);
+  const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
     routeId: defaultRouteId,
     busId: "",
     driverId: "",
-    departureTime: "2024-01-01T21:00",
-    arrivalTime: "2024-01-02T07:00",
+    departureTime: `${tomorrowStr}T21:00`,
+    arrivalTime: `${new Date(tomorrow.getTime() + 86400000).toISOString().slice(0, 10)}T07:00`,
     baseFare: "",
   });
 
-  function toggleDay(day: number) {
-    setDaysOfWeek((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
-    );
-  }
+  const depTimeOnly = extractTime(form.departureTime); // "HH:MM"
 
   useEffect(() => {
     Promise.all([
@@ -49,14 +99,52 @@ function NewScheduleForm() {
     });
   }, []);
 
+  // Load stops when route changes
+  useEffect(() => {
+    if (!form.routeId) { setRouteStops([]); setStopTimings({}); return; }
+    const route = routes.find((r: any) => r.id === form.routeId);
+    if (!route) return;
+    const stops = route.stops ?? [];
+    setRouteStops(stops);
+    const timings: Record<string, StopTiming> = {};
+    stops.forEach((s: any, idx: number) => {
+      if (idx === 0) {
+        timings[s.id] = { arrival: depTimeOnly, stoppage: "0" };
+      } else {
+        const arr = s.arrivalOffset ? addMins(depTimeOnly, s.arrivalOffset) : "";
+        const dep = s.departureOffset ? s.departureOffset - (s.arrivalOffset ?? 0) : 0;
+        timings[s.id] = { arrival: arr, stoppage: String(dep) };
+      }
+    });
+    setStopTimings(timings);
+  }, [form.routeId, routes]);
+
+  // Sync first stop arrival when departure time changes
+  useEffect(() => {
+    if (routeStops.length === 0) return;
+    const firstStop = routeStops[0];
+    setStopTimings((prev) => ({
+      ...prev,
+      [firstStop.id]: { arrival: depTimeOnly, stoppage: "0" },
+    }));
+  }, [depTimeOnly]);
+
+  function updateTiming(stopId: string, field: keyof StopTiming, value: string) {
+    setStopTimings((prev) => ({ ...prev, [stopId]: { ...prev[stopId], [field]: value } }));
+  }
+
+  function toggleDay(day: number) {
+    setDaysOfWeek((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
+    );
+  }
+
   function addFreightSpace() {
     setFreightSpaces((prev) => [...prev, { label: `Space ${prev.length + 1}`, lengthCm: 100, widthCm: 100, heightCm: 100 }]);
   }
-
   function updateFreightSpace(i: number, field: keyof FreightSpace, value: string | number) {
     setFreightSpaces((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
   }
-
   function removeFreightSpace(i: number) {
     setFreightSpaces((prev) => prev.filter((_, idx) => idx !== i));
   }
@@ -68,6 +156,16 @@ function NewScheduleForm() {
       return;
     }
     setLoading(true);
+
+    // Convert timings to arrivalOffset/departureOffset (minutes from route departure)
+    const stopOffsets = routeStops.map((s: any, idx: number) => {
+      if (idx === 0) return { stopId: s.id, arrivalOffset: 0, departureOffset: 0 };
+      const t = stopTimings[s.id];
+      const arrOffset = diffMins(depTimeOnly, t?.arrival ?? depTimeOnly);
+      const stoppageMins = Number(t?.stoppage ?? 0);
+      return { stopId: s.id, arrivalOffset: arrOffset, departureOffset: arrOffset + stoppageMins };
+    });
+
     const res = await fetch("/api/operator/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -77,6 +175,7 @@ function NewScheduleForm() {
         baseFare: Number(form.baseFare),
         daysOfWeek,
         freightSpaces: freightSpaces.length > 0 ? freightSpaces : undefined,
+        stopOffsets,
       }),
     });
     setLoading(false);
@@ -85,13 +184,14 @@ function NewScheduleForm() {
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl">
       <div className="mb-4">
         <Link href="/operator/schedules" className="text-sm text-blue-600 hover:underline">← Schedules</Link>
       </div>
       <h1 className="mb-6 text-2xl font-bold text-gray-900">New Schedule</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
+        {/* Route */}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Route *</label>
           <select
@@ -109,6 +209,7 @@ function NewScheduleForm() {
           </select>
         </div>
 
+        {/* Bus */}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Bus *</label>
           <select
@@ -119,9 +220,7 @@ function NewScheduleForm() {
           >
             <option value="">Select bus (unscheduled only)</option>
             {buses.filter((b: any) => b.isActive).map((b: any) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.registrationNo})
-              </option>
+              <option key={b.id} value={b.id}>{b.name} ({b.registrationNo})</option>
             ))}
           </select>
           {buses.filter((b: any) => b.isActive).length === 0 && (
@@ -129,6 +228,7 @@ function NewScheduleForm() {
           )}
         </div>
 
+        {/* Driver */}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Default Driver</label>
           <select
@@ -138,13 +238,12 @@ function NewScheduleForm() {
           >
             <option value="">Select driver (optional)</option>
             {drivers.map((d: any) => (
-              <option key={d.id} value={d.id}>
-                {d.user?.name} ({d.licenseNumber})
-              </option>
+              <option key={d.id} value={d.id}>{d.user?.name} ({d.licenseNumber})</option>
             ))}
           </select>
         </div>
 
+        {/* Departure / Arrival */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Departure Time *</label>
@@ -168,6 +267,97 @@ function NewScheduleForm() {
           </div>
         </div>
 
+        {/* Stop times table */}
+        {routeStops.length > 0 && (
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Stop Times</label>
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Stop</th>
+                    <th className="px-3 py-2 text-center">Arrival</th>
+                    <th className="px-3 py-2 text-center">Stoppage (min)</th>
+                    <th className="px-3 py-2 text-center">Departure</th>
+                    <th className="px-3 py-2 text-right">Dist from prev</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {routeStops.map((stop: any, idx: number) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === routeStops.length - 1;
+                    const t = stopTimings[stop.id] ?? { arrival: "", stoppage: "0" };
+                    const stoppageMins = Number(t.stoppage || 0);
+                    const departureDisplay = isFirst
+                      ? depTimeOnly
+                      : t.arrival ? addMins(t.arrival, stoppageMins) : "—";
+
+                    const prevStop = idx > 0 ? routeStops[idx - 1] : null;
+                    const distFromPrev = prevStop ? segmentDistKm(stop, prevStop) : "—";
+
+                    return (
+                      <tr key={stop.id} className={isFirst ? "bg-blue-50/30" : isLast ? "bg-green-50/30" : ""}>
+                        <td className="px-3 py-2.5 font-medium text-gray-800">
+                          {stop.stopName}
+                          {isFirst && <span className="ml-1.5 text-xs text-blue-500 font-normal">(origin)</span>}
+                          {isLast && <span className="ml-1.5 text-xs text-green-600 font-normal">(destination)</span>}
+                        </td>
+
+                        {/* Arrival — hidden for origin */}
+                        <td className="px-3 py-2.5">
+                          {isFirst ? (
+                            <span className="block text-center text-xs text-gray-400">—</span>
+                          ) : (
+                            <input
+                              type="time"
+                              className="mx-auto block w-24 rounded border border-gray-300 px-2 py-1 text-center text-xs"
+                              value={t.arrival}
+                              onChange={(e) => updateTiming(stop.id, "arrival", e.target.value)}
+                            />
+                          )}
+                        </td>
+
+                        {/* Stoppage — hidden for origin and destination */}
+                        <td className="px-3 py-2.5">
+                          {isFirst || isLast ? (
+                            <span className="block text-center text-xs text-gray-400">—</span>
+                          ) : (
+                            <input
+                              type="number"
+                              min={0}
+                              className="mx-auto block w-16 rounded border border-gray-300 px-2 py-1 text-center text-xs"
+                              value={t.stoppage}
+                              onChange={(e) => updateTiming(stop.id, "stoppage", e.target.value)}
+                            />
+                          )}
+                        </td>
+
+                        {/* Departure — hidden for destination */}
+                        <td className="px-3 py-2.5 text-center">
+                          {isLast ? (
+                            <span className="text-xs text-gray-400">—</span>
+                          ) : (
+                            <span className="inline-block rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                              {departureDisplay}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Distance from prev */}
+                        <td className="px-3 py-2.5 text-right text-xs text-gray-500">
+                          {distFromPrev}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-1 text-xs text-gray-400">Departure = Arrival + Stoppage. Distance calculated from route stop data.</p>
+          </div>
+        )}
+
+        {/* Base fare */}
         <Input
           label="Base Fare (₹) *"
           type="number"
@@ -178,10 +368,10 @@ function NewScheduleForm() {
           required
         />
 
+        {/* Days of week */}
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">
-            Days of Week{" "}
-            <span className="font-normal text-gray-400">(empty = every day)</span>
+            Days of Week <span className="font-normal text-gray-400">(empty = every day)</span>
           </label>
           <div className="flex gap-2">
             {DAY_LABELS.map((label, day) => (
@@ -205,16 +395,12 @@ function NewScheduleForm() {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="text-sm font-medium text-gray-700">Freight Spaces</label>
-            <button
-              type="button"
-              onClick={addFreightSpace}
-              className="text-xs text-blue-600 hover:underline"
-            >
+            <button type="button" onClick={addFreightSpace} className="text-xs text-blue-600 hover:underline">
               + Add Space
             </button>
           </div>
           {freightSpaces.length === 0 && (
-            <p className="text-xs text-gray-400">No freight spaces defined. Click "Add Space" to define cargo capacity dimensions.</p>
+            <p className="text-xs text-gray-400">No freight spaces defined.</p>
           )}
           {freightSpaces.map((space, i) => (
             <div key={i} className="mb-2 rounded-lg border border-gray-200 p-3">

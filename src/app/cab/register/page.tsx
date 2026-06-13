@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
+import type { City } from "@/components/ui/CityAutocomplete";
 
 const VEHICLE_TYPES = ["Sedan", "SUV", "Hatchback", "Auto"];
 
 export default function CabRegisterPage() {
   const router = useRouter();
-  const [cities, setCities] = useState<any[]>([]);
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [form, setForm] = useState({
-    fullName: "", address: "", cityId: "", phone: "", whatsapp: "",
+    fullName: "", address: "", phone: "", whatsapp: "",
     email: "", password: "", vehicleReg: "", vehicleType: "", driverName: "", driverPhone: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/cities").then(r => r.json()).then(d => setCities(d.cities ?? []));
-  }, []);
 
   function update(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -30,7 +28,7 @@ export default function CabRegisterPage() {
     const res = await fetch("/api/cab/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, cityId: selectedCity?.id ?? "" }),
     });
     const d = await res.json();
     setLoading(false);
@@ -59,13 +57,12 @@ export default function CabRegisterPage() {
               <input required className={inputCls} value={form.address} onChange={e => update("address", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>City</label>
-              <select required className={inputCls} value={form.cityId} onChange={e => update("cityId", e.target.value)}>
-                <option value="">Select city</option>
-                {cities.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.name}, {c.state}</option>
-                ))}
-              </select>
+              <CityAutocomplete
+                label="City"
+                value={selectedCity ? `${selectedCity.name}, ${selectedCity.state}` : ""}
+                onChange={setSelectedCity}
+                placeholder="Search city…"
+              />
             </div>
             <div>
               <label className={labelCls}>Phone</label>

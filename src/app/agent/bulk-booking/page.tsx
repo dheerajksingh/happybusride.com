@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BulkPassengerForm, BulkPassenger } from "@/components/passenger/BulkPassengerForm";
 import { SeatMap } from "@/components/passenger/SeatMap";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
+import type { City } from "@/components/ui/CityAutocomplete";
 
 const STEPS = ["Search", "Seats", "Passengers", "Confirm"];
 
@@ -15,9 +17,8 @@ export default function AgentBulkBookingPage() {
   const [step, setStep] = useState(0);
 
   // Step 0: Search
-  const [cities, setCities] = useState<any[]>([]);
-  const [fromId, setFromId] = useState("");
-  const [toId, setToId] = useState("");
+  const [from, setFrom] = useState<City | null>(null);
+  const [to, setTo] = useState<City | null>(null);
   const [date, setDate] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -35,14 +36,11 @@ export default function AgentBulkBookingPage() {
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetch("/api/cities?limit=500").then(r => r.json()).then(d => setCities(Array.isArray(d) ? d : (d.cities ?? [])));
-  }, []);
-
   async function doSearch(e: React.FormEvent) {
     e.preventDefault();
+    if (!from || !to) { setError("Select both cities"); return; }
     setSearching(true); setError("");
-    const res = await fetch(`/api/search?from=${fromId}&to=${toId}&date=${date}`);
+    const res = await fetch(`/api/search?from=${from.id}&to=${to.id}&date=${date}`);
     const d = await res.json();
     setSearchResults(d.results ?? []);
     setSearching(false);
@@ -143,18 +141,20 @@ export default function AgentBulkBookingPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <form onSubmit={doSearch} className="grid grid-cols-4 gap-4 items-end">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">From</label>
-              <select required className={selectCls} value={fromId} onChange={e => setFromId(e.target.value)}>
-                <option value="">Select city</option>
-                {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CityAutocomplete
+                label="From"
+                value={from?.name ?? ""}
+                onChange={setFrom}
+                placeholder="Origin city…"
+              />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">To</label>
-              <select required className={selectCls} value={toId} onChange={e => setToId(e.target.value)}>
-                <option value="">Select city</option>
-                {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CityAutocomplete
+                label="To"
+                value={to?.name ?? ""}
+                onChange={setTo}
+                placeholder="Destination city…"
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>

@@ -21,6 +21,11 @@ const scheduleSchema = z.object({
     widthCm: z.number(),
     heightCm: z.number(),
   })).optional(),
+  stopOffsets: z.array(z.object({
+    stopId: z.string(),
+    arrivalOffset: z.number().int().min(0),
+    departureOffset: z.number().int().min(0),
+  })).optional(),
 });
 
 export async function GET() {
@@ -52,7 +57,7 @@ export async function POST(req: Request) {
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
   const body = await req.json();
-  const { fareRules, daysOfWeek, freightSpaces, driverId, ...data } = scheduleSchema.parse(body);
+  const { fareRules, daysOfWeek, freightSpaces, driverId, stopOffsets, ...data } = scheduleSchema.parse(body);
 
   const schedule = await prisma.schedule.create({
     data: {
@@ -75,6 +80,16 @@ export async function POST(req: Request) {
     tripData.push({ scheduleId: schedule.id, travelDate, driverId: driverId || null, status: "SCHEDULED" as const });
   }
   await prisma.trip.createMany({ data: tripData, skipDuplicates: true });
+
+  // Save stop time offsets back to route_stops
+  if (stopOffsets && stopOffsets.length > 0) {
+    await Promise.all(stopOffsets.map((s) =>
+      prisma.routeStop.update({
+        where: { id: s.stopId },
+        data: { arrivalOffset: s.arrivalOffset, departureOffset: s.departureOffset },
+      })
+    ));
+  }
 
   return NextResponse.json(schedule, { status: 201 });
 }

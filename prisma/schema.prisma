@@ -512,15 +512,16 @@ model Route {
 }
 
 model RouteStop {
-  id              String   @id @default(cuid())
-  routeId         String
-  route           Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  cityId          String
-  city            City     @relation(fields: [cityId], references: [id])
-  stopOrder       Int
-  stopName        String
-  arrivalOffset   Int?
-  departureOffset Int?
+  id                    String   @id @default(cuid())
+  routeId               String
+  route                 Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  cityId                String
+  city                  City     @relation(fields: [cityId], references: [id])
+  stopOrder             Int
+  stopName              String
+  arrivalOffset         Int?
+  departureOffset       Int?
+  distanceFromOriginKm  Int?
 
   fareRulesFrom    FareRule[]    @relation("FareRuleFromStop")
   fareRulesTo      FareRule[]    @relation("FareRuleToStop")
@@ -528,6 +529,8 @@ model RouteStop {
   freightLegsTo    FreightLeg[]  @relation("LegToStop")
 
   @@unique([routeId, stopOrder])
+  @@index([cityId])
+  @@index([routeId, stopOrder])
   @@map("route_stops")
 }
 
@@ -605,6 +608,7 @@ model Trip {
   freightLegs  FreightLeg[]
 
   @@unique([scheduleId, travelDate])
+  @@index([travelDate, status])
   @@map("trips")
 }
 
@@ -1093,6 +1097,7 @@ model Agent {
   earnings           AgentEarning[]
   messages           AgentOperatorMessage[]
 
+  @@index([cityId, status])
   @@map("agents")
 }
 
@@ -1247,6 +1252,7 @@ model FreightLeg {
   releasedAt DateTime?
 
   @@unique([bookingId, legOrder])
+  @@index([tripId])
   @@map("freight_legs")
 }
 

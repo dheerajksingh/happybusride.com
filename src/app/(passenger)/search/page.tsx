@@ -13,6 +13,8 @@ interface SearchResult {
   route: {
     from: string;
     to: string;
+    fromStopName: string | null;
+    toStopName: string | null;
     durationMins: number | null;
     distanceKm: number | null;
     stops: { stopName: string; city: { name: string } }[];
@@ -34,6 +36,7 @@ interface SearchResult {
 interface ConnectingOption {
   transferCity: string;
   transferCityId: string;
+  transferWaitMins: number;
   leg1: {
     scheduleId: string;
     tripId: string;
@@ -85,22 +88,44 @@ function SearchContent() {
       const res = await fetch(`/api/search?${q}`);
       if (res.ok) {
         const data = await res.json();
-        setResults(data.results);
+        setResults(data.results ?? []);
+        // Auto-load connecting options when no direct buses found
+        if ((data.results ?? []).length === 0) {
+          loadConnectingInBackground();
+        }
       }
       setLoading(false);
     }
     if (from && to && date) search();
   }, [from, to, date, busType, sortBy]);
 
-  async function loadConnecting() {
-    if (connectingOptions.length > 0) return; // already loaded
+  async function loadConnectingInBackground() {
     setConnectingLoading(true);
-    const res = await fetch(`/api/search/connecting?from=${from}&to=${to}&date=${date}`);
-    if (res.ok) {
-      const d = await res.json();
-      setConnectingOptions(d.options ?? []);
+    try {
+      const res = await fetch(`/api/search/connecting?from=${from}&to=${to}&date=${date}`);
+      if (res.ok) {
+        const d = await res.json();
+        const opts = d.options ?? [];
+        setConnectingOptions(opts);
+        if (opts.length > 0) setTab("connecting");
+      }
+    } finally {
+      setConnectingLoading(false);
     }
-    setConnectingLoading(false);
+  }
+
+  async function loadConnecting() {
+    if (connectingOptions.length > 0) return;
+    setConnectingLoading(true);
+    try {
+      const res = await fetch(`/api/search/connecting?from=${from}&to=${to}&date=${date}`);
+      if (res.ok) {
+        const d = await res.json();
+        setConnectingOptions(d.options ?? []);
+      }
+    } finally {
+      setConnectingLoading(false);
+    }
   }
 
   function handleTabChange(t: "direct" | "connecting") {
@@ -245,7 +270,10 @@ function SearchContent() {
                           <span className="font-medium text-gray-900">{opt.leg1.busName}</span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          {opt.leg1.fromCity} → {opt.leg1.toCity} · {format(new Date(opt.leg1.departureTime), "HH:mm")}
+                          {opt.leg1.fromCity} → {opt.leg1.toCity}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Dep {format(new Date(opt.leg1.departureTime), "HH:mm")} · Arr {opt.transferCity} {format(new Date(opt.leg1.arrivalTime), "HH:mm")}
                         </p>
                         <p className="text-xs text-gray-400">{opt.leg1.availableSeats} seats available</p>
                       </div>
@@ -256,7 +284,15 @@ function SearchContent() {
                   {/* Transfer badge */}
                   <div className="bg-amber-50 px-4 py-2 flex items-center gap-2 text-xs text-amber-700">
                     <span>🔀</span>
-                    <span>Transfer at <strong>{opt.transferCity}</strong> — allow time between buses</span>
+                    <span>
+                      Transfer at <strong>{opt.transferCity}</strong>
+                      {opt.transferWaitMins != null && (
+                        <> — {opt.transferWaitMins >= 60
+                          ? `${Math.floor(opt.transferWaitMins / 60)}h ${opt.transferWaitMins % 60}m wait`
+                          : `${opt.transferWaitMins}m wait`}
+                        </>
+                      )}
+                    </span>
                   </div>
 
                   {/* Leg 2 */}
@@ -268,8 +304,17 @@ function SearchContent() {
                           <span className="font-medium text-gray-900">{opt.leg2.busName}</span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          {opt.leg2.fromCity} → {opt.leg2.toCity} · {format(new Date(opt.leg2.departureTime), "HH:mm")}
+                          {opt.leg2.fromCity} → {opt.leg2.toCity}
                         </p>
+                        {(() => {
+                          const leg2Dep = new Date(opt.leg2.departureTime);
+                          const isNextDay = leg2Dep.toDateString() !== new Date(date).toDateString();
+                          return (
+                            <p className="text-xs text-gray-500">
+                              Dep {format(leg2Dep, "HH:mm")}{isNextDay && <span className="ml-1 rounded bg-orange-100 px-1 text-orange-600 font-semibold">+1</span>} · Arr {format(new Date(opt.leg2.arrivalTime), "HH:mm")}
+                            </p>
+                          );
+                        })()}
                         <p className="text-xs text-gray-400">{opt.leg2.availableSeats} seats available</p>
                       </div>
                       <div className="text-right">

@@ -34,7 +34,7 @@ export default function NewRoutePage() {
     setDistanceFetching(true);
     setDistanceSource(null);
     try {
-      const res = await fetch(`/api/operator/routes/distance?fromCityId=${fromCityId}&toCityId=${toCityId}`);
+      const res = await fetch(`/api/distance?fromCityId=${fromCityId}&toCityId=${toCityId}`);
       if (res.ok) {
         const data = await res.json();
         setForm(f => ({ ...f, distanceKm: String(data.distanceKm), durationMins: String(data.durationMins) }));
@@ -44,37 +44,33 @@ export default function NewRoutePage() {
       setDistanceFetching(false);
     }
   }
-  const [stops, setStops] = useState<Stop[]>([
-    { cityId: "", cityName: "", stopName: "", stopOrder: 1, departureOffset: 0 },
-    { cityId: "", cityName: "", stopName: "", stopOrder: 2, arrivalOffset: 0 },
-  ]);
+  // Only intermediate stops — from/to are auto-added as stop 1 and last
+  const [intermediates, setIntermediates] = useState<Stop[]>([]);
 
   function addStop() {
-    setStops((s) => [
-      ...s.slice(0, -1),
-      { cityId: "", cityName: "", stopName: "", stopOrder: s.length, arrivalOffset: 0, departureOffset: 0 },
-      { ...s[s.length - 1], stopOrder: s.length + 1 },
-    ]);
+    setIntermediates((s) => [...s, { cityId: "", cityName: "", stopName: "", stopOrder: s.length + 2, arrivalOffset: 0, departureOffset: 0 }]);
   }
 
   function removeStop(idx: number) {
-    if (stops.length <= 2) return;
-    setStops((s) => s.filter((_, i) => i !== idx).map((stop, i) => ({ ...stop, stopOrder: i + 1 })));
+    setIntermediates((s) => s.filter((_, i) => i !== idx));
   }
 
   function updateStop(idx: number, field: keyof Stop, value: string | number) {
-    setStops((s) => s.map((stop, i) => i === idx ? { ...stop, [field]: value } : stop));
+    setIntermediates((s) => s.map((stop, i) => i === idx ? { ...stop, [field]: value } : stop));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.fromCityId || !form.toCityId) { alert("Select from and to cities"); return; }
 
-    const finalStops = stops.map((stop, idx) => ({
-      ...stop,
-      cityId: idx === 0 && !stop.cityId ? form.fromCityId : idx === stops.length - 1 && !stop.cityId ? form.toCityId : stop.cityId,
-      stopName: stop.stopName || (idx === 0 ? form.fromCityName : idx === stops.length - 1 ? form.toCityName : stop.cityName),
-    }));
+    const allStops = [
+      { cityId: form.fromCityId, stopName: `${form.fromCityName} Bus Stand`, stopOrder: 1, arrivalOffset: 0, departureOffset: 0 },
+      ...intermediates.map((s, i) => ({
+        cityId: s.cityId, stopName: s.stopName || `${s.cityName} Bus Stand`,
+        stopOrder: i + 2, arrivalOffset: s.arrivalOffset ?? 0, departureOffset: s.departureOffset ?? 0,
+      })),
+      { cityId: form.toCityId, stopName: `${form.toCityName} Bus Stand`, stopOrder: intermediates.length + 2, arrivalOffset: 0, departureOffset: 0 },
+    ];
 
     setLoading(true);
     const res = await fetch("/api/operator/routes", {
@@ -86,7 +82,7 @@ export default function NewRoutePage() {
         toCityId: form.toCityId,
         distanceKm: form.distanceKm ? Number(form.distanceKm) : undefined,
         durationMins: form.durationMins ? Number(form.durationMins) : undefined,
-        stops: finalStops,
+        stops: allStops,
       }),
     });
     setLoading(false);
@@ -150,14 +146,16 @@ export default function NewRoutePage() {
 
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Stops</h3>
+            <h3 className="font-semibold text-gray-900">Intermediate Stops</h3>
             <button type="button" onClick={addStop} className="text-xs text-blue-600 hover:underline">+ Add Stop</button>
           </div>
+
+          {/* Intermediate stops */}
           <div className="space-y-3">
-            {stops.map((stop, idx) => (
+            {intermediates.map((stop, idx) => (
               <div key={idx} className="flex items-start gap-2">
-                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 mt-6">
-                  {idx + 1}
+                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600 mt-6">
+                  {idx + 2}
                 </div>
                 <div className="flex-1 grid grid-cols-2 gap-2">
                   <CityAutocomplete
@@ -167,26 +165,26 @@ export default function NewRoutePage() {
                   />
                   <div>
                     <input
-                      className="w-full rounded-lg border border-gray-300 p-2 text-sm mt-0"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-sm"
                       placeholder="Stop name (bus stand)"
                       value={stop.stopName}
                       onChange={(e) => updateStop(idx, "stopName", e.target.value)}
                     />
                   </div>
-                  {idx > 0 && (
-                    <div>
-                      <label className="mb-1 block text-xs text-gray-500">Arrival offset (mins)</label>
-                      <input type="number" className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                        value={stop.arrivalOffset ?? ""} onChange={(e) => updateStop(idx, "arrivalOffset", Number(e.target.value))} />
-                    </div>
-                  )}
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Arrival offset (mins from departure)</label>
+                    <input type="number" className="w-full rounded-lg border border-gray-300 p-2 text-sm"
+                      value={stop.arrivalOffset ?? ""} onChange={(e) => updateStop(idx, "arrivalOffset", Number(e.target.value))} />
+                  </div>
                 </div>
-                {idx > 0 && idx < stops.length - 1 && (
-                  <button type="button" onClick={() => removeStop(idx)} className="mt-6 text-gray-400 hover:text-red-500">×</button>
-                )}
+                <button type="button" onClick={() => removeStop(idx)} className="mt-6 text-gray-400 hover:text-red-500">×</button>
               </div>
             ))}
           </div>
+
+          {intermediates.length === 0 && (
+            <p className="mt-2 text-xs text-gray-400">No intermediate stops. Use "+ Add Stop" to add cities the bus stops at along the way.</p>
+          )}
         </div>
 
         <Button type="submit" variant="primary" loading={loading} className="w-full">Create Route</Button>

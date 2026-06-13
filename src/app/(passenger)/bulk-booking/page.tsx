@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BulkPassengerForm, BulkPassenger } from "@/components/passenger/BulkPassengerForm";
 import { SeatMap } from "@/components/passenger/SeatMap";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { PageSpinner } from "@/components/ui/Spinner";
+import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
+import type { City } from "@/components/ui/CityAutocomplete";
 
 const STEPS = ["Search", "Seats", "Passengers", "Confirm"];
 
@@ -15,9 +17,8 @@ function BulkBookingContent() {
   const { data: session } = useSession();
 
   const [step, setStep] = useState(0);
-  const [cities, setCities] = useState<any[]>([]);
-  const [fromId, setFromId] = useState(sp.get("from") ?? "");
-  const [toId, setToId] = useState(sp.get("to") ?? "");
+  const [from, setFrom] = useState<City | null>(null);
+  const [to, setTo] = useState<City | null>(null);
   const [date, setDate] = useState(sp.get("date") ?? "");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -29,14 +30,11 @@ function BulkBookingContent() {
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetch("/api/cities").then(r => r.json()).then(d => setCities(d.cities ?? []));
-  }, []);
-
   async function doSearch(e: React.FormEvent) {
     e.preventDefault();
+    if (!from || !to) { setError("Select both cities"); return; }
     setSearching(true); setError("");
-    const res = await fetch(`/api/search?from=${fromId}&to=${toId}&date=${date}`);
+    const res = await fetch(`/api/search?from=${from.id}&to=${to.id}&date=${date}`);
     const d = await res.json();
     setSearchResults(d.results ?? []);
     setSearching(false);
@@ -127,18 +125,20 @@ function BulkBookingContent() {
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <form onSubmit={doSearch} className="grid grid-cols-1 gap-4 sm:grid-cols-4 items-end">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">From</label>
-              <select required className={selectCls} value={fromId} onChange={e => setFromId(e.target.value)}>
-                <option value="">Select city</option>
-                {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CityAutocomplete
+                label="From"
+                value={from?.name ?? ""}
+                onChange={setFrom}
+                placeholder="Origin city…"
+              />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">To</label>
-              <select required className={selectCls} value={toId} onChange={e => setToId(e.target.value)}>
-                <option value="">Select city</option>
-                {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CityAutocomplete
+                label="To"
+                value={to?.name ?? ""}
+                onChange={setTo}
+                placeholder="Destination city…"
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { APP_NAME } from "@/constants/config";
 
 type Service = "tickets" | "charter" | "corporate";
@@ -17,6 +17,7 @@ const navByService: Record<Service, { href: string; label: string; icon: string 
     { href: "/operator/trips", label: "Trips", icon: "🎫" },
     { href: "/operator/drivers", label: "Drivers", icon: "👤" },
     { href: "/operator/agents", label: "Agents", icon: "🤝" },
+    { href: "/operator/freight", label: "Freight", icon: "📦" },
     { href: "/operator/messages", label: "Messages", icon: "💬" },
     { href: "/operator/fares", label: "Fare Rules", icon: "💲" },
     { href: "/operator/earnings", label: "Earnings", icon: "💰" },
@@ -61,6 +62,8 @@ const SERVICE_LABELS: Record<Service, string> = {
 
 export function OperatorSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const operatorName = session?.user?.name ?? "Operator";
   const [service, setService] = useState<Service>("tickets");
   const [unreadMessages, setUnreadMessages] = useState(0);
 
@@ -105,6 +108,7 @@ export function OperatorSidebar() {
       <div className="border-b border-gray-200 px-6 py-4">
         <Link href="/" className="text-lg font-bold text-blue-600">{APP_NAME}</Link>
         <p className="text-xs text-gray-500">Operator Portal</p>
+        <p className="mt-1 text-sm font-medium text-gray-800 truncate">{operatorName}</p>
       </div>
 
       {/* Service switcher */}
