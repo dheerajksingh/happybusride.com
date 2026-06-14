@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
     const travelDate = new Date(params.date);
     travelDate.setHours(0, 0, 0, 0);
     const travelDateEnd = new Date(params.date + "T23:59:59");
+    const nextDayEnd = new Date(travelDateEnd);
+    nextDayEnd.setUTCDate(nextDayEnd.getUTCDate() + 1);
 
     // Stops for origin and destination cities
     const [fromStops, toStops] = await Promise.all([
@@ -115,11 +117,12 @@ export async function GET(req: NextRequest) {
             route: { select: { distanceKm: true, stops: { orderBy: { stopOrder: "asc" } } } },
             bus: { select: { name: true, busType: true, totalSeats: true } },
             trips: {
-              where: { travelDate: { gte: travelDate, lte: travelDateEnd } },
+              where: { travelDate: { gte: travelDate, lte: nextDayEnd } },
               include: {
                 _count: { select: { bookings: true } },
                 seatLocks: { where: { expiresAt: { gte: new Date() } }, select: { seatId: true } },
               },
+              orderBy: { travelDate: "asc" },
             },
           },
           take: 5,
@@ -129,8 +132,7 @@ export async function GET(req: NextRequest) {
       for (const sch1 of leg1Schedules) {
         for (const sch2 of leg2Schedules) {
           const trip1 = sch1.trips[0];
-          const trip2 = sch2.trips[0];
-          if (!trip1 || !trip2) continue;
+          if (!trip1) continue;
 
           const boardingStop  = sch1.route.stops.find(s => s.cityId === params.from);
           const midStop1      = sch1.route.stops.find(s => s.cityId === midCityId);
@@ -140,10 +142,22 @@ export async function GET(req: NextRequest) {
 
           const sch1Dep = new Date(sch1.departureTime);
           const sch2Dep = new Date(sch2.departureTime);
-          const leg1DepTime  = stopTime(sch1Dep, boardingStop?.departureOffset ?? 0);
-          const leg1ArrTime  = stopTime(sch1Dep, midStop1.arrivalOffset ?? 0);
-          const leg2DepTime  = stopTime(sch2Dep, midStop2.departureOffset ?? 0);
-          const leg2ArrTime  = stopTime(sch2Dep, alightingStop?.arrivalOffset ?? 0);
+          const leg1DepTime = stopTime(sch1Dep, boardingStop?.departureOffset ?? 0);
+          const leg1ArrTime = stopTime(sch1Dep, midStop1.arrivalOffset ?? 0);
+
+          // Find the earliest leg2 trip (same day or next day) with valid connection time.
+          // stopTime anchors to params.date, so add dayOffset * 24h for next-day trips.
+          const MS_PER_DAY = 86400000;
+          const trip2 = sch2.trips.find(t => {
+            const dayOffset = Math.round((new Date(t.travelDate).getTime() - travelDate.getTime()) / MS_PER_DAY);
+            const leg2Dep = new Date(stopTime(sch2Dep, midStop2.departureOffset ?? 0).getTime() + dayOffset * MS_PER_DAY);
+            return Math.round((leg2Dep.getTime() - leg1ArrTime.getTime()) / 60000) >= MIN_CONNECTION_MINS;
+          });
+          if (!trip2) continue;
+
+          const dayOffset = Math.round((new Date(trip2.travelDate).getTime() - travelDate.getTime()) / MS_PER_DAY);
+          const leg2DepTime = new Date(stopTime(sch2Dep, midStop2.departureOffset ?? 0).getTime() + dayOffset * MS_PER_DAY);
+          const leg2ArrTime = new Date(stopTime(sch2Dep, alightingStop?.arrivalOffset ?? 0).getTime() + dayOffset * MS_PER_DAY);
 
           // Must have at least MIN_CONNECTION_MINS gap at transfer city
           const waitMins = Math.round((leg2DepTime.getTime() - leg1ArrTime.getTime()) / 60000);
