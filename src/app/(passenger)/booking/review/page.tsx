@@ -196,6 +196,8 @@ function ReviewContent() {
   if (!tripData) return <div className="p-8 text-center text-gray-500">Trip not found</div>;
 
   const dep = new Date(tripData.departureTime);
+  const arr = new Date(tripData.arrivalTime);
+  const arrIsNextDay = arr.toDateString() !== dep.toDateString();
   const fare = calculateFare(Number(tripData.baseFare), seatIds.length);
   const grandTotal = fare.totalAmount + luggageCharge + pickupPrice + dropoffPrice + cabPickupPrice + cabDropoffPrice;
 
@@ -210,7 +212,7 @@ function ReviewContent() {
             {" → "}
             <span className="font-medium">{tripData.route.toCity?.name ?? tripData.route.to}</span>
             {" · "}
-            {format(dep, "EEE, d MMM")} at {format(dep, "HH:mm")}
+            Dep: {format(dep, "EEE d MMM, HH:mm")} · Arr: {format(arr, arrIsNextDay ? "d MMM, HH:mm" : "HH:mm")}
           </div>
         </div>
 

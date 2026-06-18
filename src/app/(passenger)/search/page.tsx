@@ -273,7 +273,12 @@ function SearchContent() {
                           {opt.leg1.fromCity} → {opt.leg1.toCity}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Dep {format(new Date(opt.leg1.departureTime), "HH:mm")} · Arr {opt.transferCity} {format(new Date(opt.leg1.arrivalTime), "HH:mm")}
+                          {(() => {
+                            const d = new Date(opt.leg1.departureTime);
+                            const a = new Date(opt.leg1.arrivalTime);
+                            const nextDay = a.toDateString() !== d.toDateString();
+                            return <>Dep {format(d, "HH:mm")} · Arr {opt.transferCity} {format(a, nextDay ? "d MMM, HH:mm" : "HH:mm")}</>;
+                          })()}
                         </p>
                         <p className="text-xs text-gray-400">{opt.leg1.availableSeats} seats available</p>
                       </div>
@@ -311,7 +316,7 @@ function SearchContent() {
                           const isNextDay = leg2Dep.toDateString() !== new Date(date).toDateString();
                           return (
                             <p className="text-xs text-gray-500">
-                              Dep {format(leg2Dep, "HH:mm")}{isNextDay && <span className="ml-1 rounded bg-orange-100 px-1 text-orange-600 font-semibold">+1</span>} · Arr {format(new Date(opt.leg2.arrivalTime), "HH:mm")}
+                              Dep {format(leg2Dep, isNextDay ? "d MMM, HH:mm" : "HH:mm")} · Arr {format(new Date(opt.leg2.arrivalTime), new Date(opt.leg2.arrivalTime).toDateString() !== leg2Dep.toDateString() ? "d MMM, HH:mm" : "HH:mm")}
                             </p>
                           );
                         })()}

@@ -40,8 +40,20 @@ export function QRTicket({ booking }: { booking: BookingData }) {
     ).then(setQrDataUrl);
   }, [booking]);
 
-  const dep = new Date(booking.trip.schedule.departureTime);
-  const arr = new Date(booking.trip.schedule.arrivalTime);
+  const travelDate = new Date(booking.trip.travelDate);
+  const depTime = new Date(booking.trip.schedule.departureTime);
+  const arrTime = new Date(booking.trip.schedule.arrivalTime);
+  const dep = new Date(
+    travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(),
+    depTime.getUTCHours(), depTime.getUTCMinutes(),
+  );
+  const arr = new Date(
+    travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(),
+    arrTime.getUTCHours(), arrTime.getUTCMinutes(),
+  );
+  if (arrTime.getUTCHours() * 60 + arrTime.getUTCMinutes() < depTime.getUTCHours() * 60 + depTime.getUTCMinutes()) {
+    arr.setDate(arr.getDate() + 1);
+  }
   const seatNums = booking.seats.map((s) => s.seat.seatNumber).join(", ");
 
   return (
@@ -98,24 +110,36 @@ export function QRTicket({ booking }: { booking: BookingData }) {
           ))}
         </div>
         <div>
-          <p className="text-xs text-gray-400">Total Paid</p>
+          <p className="text-xs text-gray-400">{booking.status === "CONFIRMED" || booking.status === "COMPLETED" ? "Total Paid" : "Total Amount"}</p>
           <p className="text-lg font-bold text-gray-900">₹{Number(booking.totalAmount).toLocaleString()}</p>
         </div>
       </div>
 
       <div className="border-t border-dashed border-gray-200" />
 
-      {/* QR Code */}
-      <div className="flex flex-col items-center px-6 py-4">
-        {qrDataUrl ? (
-          <img src={qrDataUrl} alt="Ticket QR Code" className="h-40 w-40" />
-        ) : (
-          <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-gray-100">
-            <span className="text-gray-400">Loading QR...</span>
+      {/* QR Code — only for confirmed/completed bookings */}
+      {booking.status === "CONFIRMED" || booking.status === "COMPLETED" ? (
+        <div className="flex flex-col items-center px-6 py-4">
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="Ticket QR Code" className="h-40 w-40" />
+          ) : (
+            <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-gray-100">
+              <span className="text-gray-400">Loading QR...</span>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-gray-400">Show this QR to the conductor</p>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center px-6 py-4">
+          <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-yellow-50 border border-yellow-200">
+            <div className="text-center">
+              <p className="text-2xl">⏳</p>
+              <p className="mt-1 text-xs font-semibold text-yellow-700">Payment Pending</p>
+            </div>
           </div>
-        )}
-        <p className="mt-2 text-xs text-gray-400">Show this QR to the conductor</p>
-      </div>
+          <p className="mt-2 text-xs text-gray-400">QR will appear after payment is confirmed</p>
+        </div>
+      )}
     </div>
   );
 }

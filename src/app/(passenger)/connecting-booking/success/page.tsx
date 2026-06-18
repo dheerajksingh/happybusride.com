@@ -9,6 +9,8 @@ function SuccessContent() {
   const params = useSearchParams();
   const pnr1 = params.get("pnr1") ?? "";
   const pnr2 = params.get("pnr2") ?? "";
+  const bookingId1 = params.get("bookingId1") ?? "";
+  const bookingId2 = params.get("bookingId2") ?? "";
   const from = params.get("from") ?? "";
   const via = params.get("via") ?? "";
   const to = params.get("to") ?? "";
@@ -23,30 +25,46 @@ function SuccessContent() {
         </p>
 
         <div className="space-y-3 mb-6">
-          <div className="rounded-xl border border-green-200 bg-white p-4">
-            <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Leg 1 PNR</p>
-            <p className="font-mono text-lg font-bold text-gray-900 tracking-wider">{pnr1}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{from} → {via}</p>
-          </div>
-          <div className="flex items-center justify-center gap-2 text-gray-400">
-            <div className="h-px w-12 bg-gray-200" />
-            <span className="text-xs">Transfer at {via}</span>
-            <div className="h-px w-12 bg-gray-200" />
-          </div>
-          <div className="rounded-xl border border-green-200 bg-white p-4">
-            <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Leg 2 PNR</p>
-            <p className="font-mono text-lg font-bold text-gray-900 tracking-wider">{pnr2}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{via} → {to}</p>
-          </div>
+          {[
+            { label: "Leg 1", pnr: pnr1, bookingId: bookingId1, route: `${from} → ${via}` },
+            { label: "Leg 2", pnr: pnr2, bookingId: bookingId2, route: `${via} → ${to}` },
+          ].map((leg, i) => (
+            <div key={i}>
+              {i === 1 && (
+                <div className="flex items-center justify-center gap-2 text-gray-400 my-2">
+                  <div className="h-px w-12 bg-gray-200" />
+                  <span className="text-xs">Transfer at {via}</span>
+                  <div className="h-px w-12 bg-gray-200" />
+                </div>
+              )}
+              <div className="rounded-xl border border-green-200 bg-white p-4 text-left">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase font-semibold">{leg.label} PNR</p>
+                    <p className="font-mono text-lg font-bold text-gray-900 tracking-wider">{leg.pnr.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{leg.route}</p>
+                  </div>
+                  {leg.bookingId && (
+                    <Link
+                      href={`/my-trips/${leg.bookingId}`}
+                      className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                    >
+                      View Ticket →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <p className="text-xs text-gray-500 mb-5">
-          Both bookings are linked. Show both PNRs at boarding. Please allow sufficient transfer time at {via}.
+          Both bookings are confirmed. Show each ticket QR to the conductor at boarding. Allow sufficient transfer time at {via}.
         </p>
 
         <div className="flex gap-3 justify-center">
           <Link href="/my-trips" className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700">
-            View My Trips
+            My Trips
           </Link>
           <Link href="/" className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
             Home

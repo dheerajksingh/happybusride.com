@@ -34,6 +34,7 @@ export async function GET(req: Request) {
           },
           seats: { include: { seat: { select: { seatNumber: true } } } },
           payment: { select: { status: true, method: true } },
+          connectingGroup: { select: { id: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,

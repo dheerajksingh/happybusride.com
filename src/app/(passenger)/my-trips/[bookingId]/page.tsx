@@ -108,7 +108,12 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
   );
 
   const canCancel = booking.status === "CONFIRMED";
-  const dep = new Date(booking.trip.schedule.departureTime);
+  const travelDate = new Date(booking.trip.travelDate);
+  const depTime = new Date(booking.trip.schedule.departureTime);
+  const dep = new Date(
+    travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(),
+    depTime.getUTCHours(), depTime.getUTCMinutes(),
+  );
   const isFuture = dep > new Date();
 
   return (
@@ -119,6 +124,15 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
 
       {cancelResult && (
         <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{cancelResult}</div>
+      )}
+
+      {booking.status === "PENDING" && (
+        <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+          <p className="font-semibold text-yellow-800">Payment not completed</p>
+          <p className="mt-1 text-sm text-yellow-700">
+            This booking is awaiting payment. Your seat is reserved but the ticket will only be issued after payment is confirmed.
+          </p>
+        </div>
       )}
 
       <QRTicket booking={booking} />

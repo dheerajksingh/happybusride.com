@@ -7,6 +7,13 @@ import { SeatMap } from "@/components/passenger/SeatMap";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { useSession } from "next-auth/react";
 
+function fmtDateTime(iso: string, baseIso?: string) {
+  const d = new Date(iso);
+  const base = baseIso ? new Date(baseIso) : null;
+  const isNextDay = base && d.toDateString() !== base.toDateString();
+  return format(d, isNextDay ? "d MMM, HH:mm" : "HH:mm");
+}
+
 interface Passenger {
   name: string;
   age: string;
@@ -35,6 +42,7 @@ function ConnectingBookingContent() {
   const [leg1Seats, setLeg1Seats] = useState<string[]>([]);
   const [leg2Seats, setLeg2Seats] = useState<string[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "WALLET">("UPI");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -95,12 +103,13 @@ function ConnectingBookingContent() {
         leg1: { tripId: leg1Data.tripId, scheduleId: leg1ScheduleId, seatIds: leg1Seats, baseFare: Number(leg1Data.baseFare) },
         leg2: { tripId: leg2Data.tripId, scheduleId: leg2ScheduleId, seatIds: leg2Seats, baseFare: Number(leg2Data.baseFare) },
         passengers,
+        paymentMethod,
       }),
     });
     const d = await res.json();
     setSubmitting(false);
     if (!res.ok) { setError(d.error ?? "Booking failed"); return; }
-    router.push(`/connecting-booking/success?pnr1=${d.booking1.pnr}&pnr2=${d.booking2.pnr}&groupId=${d.groupId}&from=${leg1Data?.route?.fromCity?.name ?? ""}&via=${transferCity}&to=${leg2Data?.route?.toCity?.name ?? ""}`);
+    router.push(`/connecting-booking/success?pnr1=${d.booking1.pnr}&pnr2=${d.booking2.pnr}&bookingId1=${d.booking1.bookingId}&bookingId2=${d.booking2.bookingId}&from=${encodeURIComponent(leg1Data?.route?.fromCity?.name ?? "")}&via=${encodeURIComponent(transferCity)}&to=${encodeURIComponent(leg2Data?.route?.toCity?.name ?? "")}`);
   }
 
   if (loading) return <PageSpinner />;
@@ -150,7 +159,9 @@ function ConnectingBookingContent() {
                   <span className="text-xs font-semibold uppercase text-gray-400">{label}</span>
                   <p className="font-semibold text-gray-900">{data.bus?.name}</p>
                   <p className="text-sm text-gray-600">{from} → {to}</p>
-                  <p className="text-sm text-gray-500">{format(new Date(data.departureTime), "HH:mm")} – {format(new Date(data.arrivalTime), "HH:mm")}</p>
+                  <p className="text-sm text-gray-500">
+                    {fmtDateTime(data.departureTime)} – {fmtDateTime(data.arrivalTime, data.departureTime)}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-gray-900">₹{Number(data.baseFare).toLocaleString()}</p>
@@ -272,22 +283,65 @@ function ConnectingBookingContent() {
             <div>
               <span className="text-xs font-semibold text-gray-400 uppercase">Leg 1</span>
               <p className="text-gray-900">{leg1Data.route?.fromCity?.name} → {transferCity} · {leg1Data.bus?.name}</p>
-              <p className="text-gray-600">{format(new Date(leg1Data.departureTime), "HH:mm")} · {leg1Seats.length} seat(s) · ₹{(Number(leg1Data.baseFare) * leg1Seats.length).toLocaleString()}</p>
+              <p className="text-gray-600">
+                Dep: {fmtDateTime(leg1Data.departureTime)} · Arr: {fmtDateTime(leg1Data.arrivalTime, leg1Data.departureTime)}
+              </p>
+              <p className="text-gray-600">{leg1Seats.length} seat(s) · ₹{(Number(leg1Data.baseFare) * leg1Seats.length).toLocaleString()}</p>
             </div>
             <div>
               <span className="text-xs font-semibold text-gray-400 uppercase">Leg 2</span>
               <p className="text-gray-900">{transferCity} → {leg2Data.route?.toCity?.name} · {leg2Data.bus?.name}</p>
-              <p className="text-gray-600">{format(new Date(leg2Data.departureTime), "HH:mm")} · {leg2Seats.length} seat(s) · ₹{(Number(leg2Data.baseFare) * leg2Seats.length).toLocaleString()}</p>
+              <p className="text-gray-600">
+                Dep: {fmtDateTime(leg2Data.departureTime)} · Arr: {fmtDateTime(leg2Data.arrivalTime, leg2Data.departureTime)}
+              </p>
+              <p className="text-gray-600">{leg2Seats.length} seat(s) · ₹{(Number(leg2Data.baseFare) * leg2Seats.length).toLocaleString()}</p>
             </div>
             <div className="border-t pt-2 font-semibold text-gray-900">
               Total (est. with taxes): ₹{Math.round(totalFare * 1.05 + 30).toLocaleString()}
             </div>
           </div>
+
+          {/* Payment method */}
+          <div className="mb-4">
+            <p className="mb-3 text-sm font-semibold text-gray-700">Payment Method</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(["UPI", "CARD", "WALLET"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPaymentMethod(m)}
+                  className={`rounded-lg border p-3 text-sm font-medium transition-colors ${
+                    paymentMethod === m
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:border-blue-300"
+                  }`}
+                >
+                  {m === "UPI" ? "📱 UPI" : m === "CARD" ? "💳 Card" : "👛 Wallet"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {paymentMethod === "UPI" && (
+            <div className="mb-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">UPI ID</label>
+              <input
+                type="text"
+                placeholder="yourname@upi"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
+            This is a demo payment. Click Pay Now to complete the booking instantly.
+          </div>
+
           <div className="flex gap-3">
             <button onClick={() => setStep(3)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700">Back</button>
             <button onClick={confirmBooking} disabled={submitting}
-              className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-              {submitting ? "Booking…" : "Confirm Both Legs"}
+              className="flex-1 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+              {submitting ? "Booking…" : `Pay ₹${Math.round(totalFare * 1.05 + 30).toLocaleString()}`}
             </button>
           </div>
         </div>

@@ -24,6 +24,7 @@ const schema = z.object({
     leg1SeatId: z.string(),
     leg2SeatId: z.string(),
   })),
+  paymentMethod: z.enum(["UPI", "CARD", "WALLET"]).default("UPI"),
 });
 
 export async function POST(req: NextRequest) {
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const data = schema.parse(body);
+    const { paymentMethod } = data;
 
     if (data.leg1.seatIds.length !== data.passengers.length || data.leg2.seatIds.length !== data.passengers.length) {
       return NextResponse.json({ error: "Seat count must match passenger count for both legs" }, { status: 400 });
@@ -96,6 +98,32 @@ export async function POST(req: NextRequest) {
             },
           },
         }),
+      ]);
+
+      const mockTxnId = `TXN${Date.now()}`;
+      await Promise.all([
+        tx.payment.create({
+          data: {
+            bookingId: booking1.id,
+            amount: fare1.totalAmount,
+            method: paymentMethod,
+            status: "SUCCESS",
+            gatewayTxnId: mockTxnId + "_L1",
+            completedAt: new Date(),
+          },
+        }),
+        tx.payment.create({
+          data: {
+            bookingId: booking2.id,
+            amount: fare2.totalAmount,
+            method: paymentMethod,
+            status: "SUCCESS",
+            gatewayTxnId: mockTxnId + "_L2",
+            completedAt: new Date(),
+          },
+        }),
+        tx.booking.update({ where: { id: booking1.id }, data: { status: "CONFIRMED" } }),
+        tx.booking.update({ where: { id: booking2.id }, data: { status: "CONFIRMED" } }),
       ]);
 
       return { group, booking1, booking2 };

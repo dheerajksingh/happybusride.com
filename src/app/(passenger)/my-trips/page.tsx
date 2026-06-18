@@ -26,6 +26,7 @@ interface Booking {
     };
   };
   payment: { status: string; method: string } | null;
+  connectingGroup: { id: string } | null;
 }
 
 interface CharterBooking {
@@ -123,38 +124,97 @@ export default function MyTripsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((b) => {
-              const dep = new Date(b.trip.schedule.departureTime);
-              const seatNums = b.seats.map((s) => s.seat.seatNumber).join(", ");
-              return (
-                <Link
-                  key={b.id}
-                  href={`/my-trips/${b.id}`}
-                  className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="font-bold text-gray-900">
-                          {b.trip.schedule.route.fromCity.name} → {b.trip.schedule.route.toCity.name}
+            {(() => {
+              // Group connecting journey legs together
+              const seen = new Set<string>();
+              const groups: { connecting: boolean; bookings: Booking[] }[] = [];
+              for (const b of bookings) {
+                if (seen.has(b.id)) continue;
+                seen.add(b.id);
+                if (b.connectingGroup) {
+                  const partner = bookings.find(
+                    (x) => x.id !== b.id && x.connectingGroup?.id === b.connectingGroup!.id
+                  );
+                  if (partner) { seen.add(partner.id); groups.push({ connecting: true, bookings: [b, partner] }); }
+                  else groups.push({ connecting: false, bookings: [b] });
+                } else {
+                  groups.push({ connecting: false, bookings: [b] });
+                }
+              }
+
+              return groups.map((g, gi) => {
+                if (g.connecting) {
+                  const [leg1, leg2] = g.bookings;
+                  return (
+                    <div key={gi} className="rounded-xl border border-blue-200 bg-blue-50 shadow-sm overflow-hidden">
+                      <div className="px-4 py-2 bg-blue-100 flex items-center gap-2">
+                        <span className="text-xs font-bold text-blue-700 uppercase">🔀 Connecting Journey</span>
+                        <span className="text-xs text-blue-600">
+                          {leg1.trip.schedule.route.fromCity.name} → {leg2.trip.schedule.route.toCity.name}
                         </span>
-                        {bookingStatusBadge(b.status)}
                       </div>
-                      <p className="text-sm text-gray-600">
-                        {format(dep, "EEE, d MMM yyyy")} · {format(dep, "HH:mm")}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {b.trip.schedule.bus.name} · {BUS_TYPE_LABELS[b.trip.schedule.bus.busType]} · Seats: {seatNums}
-                      </p>
+                      {[leg1, leg2].map((b, li) => {
+                        const travelDate = new Date(b.trip.travelDate);
+                        const depTime = new Date(b.trip.schedule.departureTime);
+                        const dep = new Date(travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(), depTime.getUTCHours(), depTime.getUTCMinutes());
+                        return (
+                          <Link key={b.id} href={`/my-trips/${b.id}`}
+                            className={`flex items-start justify-between gap-4 p-4 bg-white hover:bg-gray-50 transition-colors ${li === 0 ? "border-b border-blue-100" : ""}`}
+                          >
+                            <div className="flex-1">
+                              <div className="mb-1 flex items-center gap-2">
+                                <span className="text-xs font-semibold text-blue-600">Leg {li + 1}</span>
+                                <span className="font-semibold text-gray-900">
+                                  {b.trip.schedule.route.fromCity.name} → {b.trip.schedule.route.toCity.name}
+                                </span>
+                                {bookingStatusBadge(b.status)}
+                              </div>
+                              <p className="text-sm text-gray-600">{format(dep, "EEE, d MMM yyyy")} · {format(dep, "HH:mm")}</p>
+                              <p className="mt-1 text-xs text-gray-400">{b.trip.schedule.bus.name} · Seats: {b.seats.map((s) => s.seat.seatNumber).join(", ")}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-gray-900">₹{Number(b.totalAmount).toLocaleString()}</p>
+                              <p className="text-xs text-gray-400">PNR: {b.pnr.slice(0, 8).toUpperCase()}</p>
+                              <p className="text-xs text-blue-600 mt-1">View Ticket →</p>
+                            </div>
+                          </Link>
+                        );
+                      })}
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">₹{Number(b.totalAmount).toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">PNR: {b.pnr.slice(0, 8).toUpperCase()}</p>
+                  );
+                }
+
+                const b = g.bookings[0];
+                const travelDate = new Date(b.trip.travelDate);
+                const depTime = new Date(b.trip.schedule.departureTime);
+                const dep = new Date(travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(), depTime.getUTCHours(), depTime.getUTCMinutes());
+                const seatNums = b.seats.map((s) => s.seat.seatNumber).join(", ");
+                return (
+                  <Link key={b.id} href={`/my-trips/${b.id}`}
+                    className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="font-bold text-gray-900">
+                            {b.trip.schedule.route.fromCity.name} → {b.trip.schedule.route.toCity.name}
+                          </span>
+                          {bookingStatusBadge(b.status)}
+                        </div>
+                        <p className="text-sm text-gray-600">{format(dep, "EEE, d MMM yyyy")} · {format(dep, "HH:mm")}</p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {b.trip.schedule.bus.name} · {BUS_TYPE_LABELS[b.trip.schedule.bus.busType]} · Seats: {seatNums}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-900">₹{Number(b.totalAmount).toLocaleString()}</p>
+                        <p className="text-xs text-gray-400">PNR: {b.pnr.slice(0, 8).toUpperCase()}</p>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              });
+            })()}
           </div>
         )
       ) : charterBookings.length === 0 ? (

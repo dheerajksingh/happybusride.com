@@ -29,6 +29,7 @@ interface SearchResult {
 export function BusCard({ result, date }: { result: SearchResult; date: string }) {
   const dep = new Date(result.departureTime);
   const arr = new Date(result.arrivalTime);
+  const arrIsNextDay = arr.toDateString() !== dep.toDateString();
   const durationLabel = result.route.durationMins && result.route.durationMins > 0
     ? `${Math.floor(result.route.durationMins / 60)}h ${result.route.durationMins % 60}m`
     : null;
@@ -72,6 +73,9 @@ export function BusCard({ result, date }: { result: SearchResult; date: string }
 
             <div className="text-center">
               <p className="text-xl font-bold text-gray-900">{format(arr, "HH:mm")}</p>
+              {arrIsNextDay && (
+                <p className="text-xs font-semibold text-orange-600">{format(arr, "d MMM")}</p>
+              )}
               <p className="text-xs font-medium text-gray-700">{result.route.to}</p>
               {result.route.toStopName && result.route.toStopName !== result.route.to && (
                 <p className="text-xs text-gray-400">{result.route.toStopName}</p>
