@@ -42,6 +42,27 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35);
 }
 
+// Estimate travel time in minutes from distance (50 km/h average for Indian intercity buses)
+function estimateMins(distanceKm: number): number {
+  return Math.round((distanceKm / 50) * 60);
+}
+
+function fmtDuration(mins: number): string {
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+// Returns warning string if arrival time is outside plausible range for the distance
+function validateArrival(depTime: string, arrTime: string, distanceKm: number): string | null {
+  const actual = diffMins(depTime, arrTime);
+  const minMins = Math.round((distanceKm / 80) * 60); // 80 km/h — fastest plausible
+  const maxMins = Math.round((distanceKm / 25) * 60); // 25 km/h — slowest plausible
+  if (actual < minMins)
+    return `Too fast for ${distanceKm} km — minimum ${fmtDuration(minMins)} (at 80 km/h). Estimated: ${fmtDuration(estimateMins(distanceKm))}.`;
+  if (actual > maxMins)
+    return `Too long for ${distanceKm} km — maximum ${fmtDuration(maxMins)} (at 25 km/h). Estimated: ${fmtDuration(estimateMins(distanceKm))}.`;
+  return null;
+}
+
 function segmentDistKm(stop: any, prevStop: any): string {
   // Prefer stored cumulative distances
   if (stop.distanceFromOriginKm != null && prevStop.distanceFromOriginKm != null) {
@@ -71,6 +92,7 @@ function NewScheduleForm() {
   const [freightSpaces, setFreightSpaces] = useState<FreightSpace[]>([]);
   const [routeStops, setRouteStops] = useState<any[]>([]);
   const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
+  const [arrivalWarning, setArrivalWarning] = useState<string | null>(null);
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -128,6 +150,51 @@ function NewScheduleForm() {
       [firstStop.id]: { arrival: depTimeOnly, stoppage: "0" },
     }));
   }, [depTimeOnly]);
+
+  // Auto-set arrival time: use last stop's arrivalOffset if available, else estimate from distance
+  useEffect(() => {
+    if (routeStops.length === 0 || !form.departureTime) return;
+    const lastStop = routeStops[routeStops.length - 1];
+    const route = routes.find((r: any) => r.id === form.routeId);
+
+    let estMins: number | null = null;
+    if (lastStop.arrivalOffset != null && lastStop.arrivalOffset > 0) {
+      estMins = lastStop.arrivalOffset;
+    } else if (route?.distanceKm) {
+      estMins = estimateMins(route.distanceKm);
+    }
+    if (estMins == null) return;
+
+    const arrTimeOnly = addMins(depTimeOnly, estMins);
+    const [dh, dm] = depTimeOnly.split(":").map(Number);
+    const [ah, am] = arrTimeOnly.split(":").map(Number);
+    const depDate = new Date(form.departureTime);
+    const arrDate = new Date(depDate);
+    if (ah * 60 + am < dh * 60 + dm) arrDate.setDate(arrDate.getDate() + 1);
+    const arrivalDateStr = arrDate.toISOString().slice(0, 10);
+    setForm((f) => ({ ...f, arrivalTime: `${arrivalDateStr}T${arrTimeOnly}` }));
+  }, [form.routeId, depTimeOnly, routes]);
+
+  // Sync form arrivalTime → last stop's arrival in the table
+  useEffect(() => {
+    if (routeStops.length === 0 || !form.arrivalTime) return;
+    const lastStop = routeStops[routeStops.length - 1];
+    const arrTimeOnly = extractTime(form.arrivalTime);
+    if (!arrTimeOnly) return;
+    setStopTimings((prev) => ({
+      ...prev,
+      [lastStop.id]: { ...prev[lastStop.id] ?? { stoppage: "0" }, arrival: arrTimeOnly },
+    }));
+  }, [form.arrivalTime, routeStops]);
+
+  // Validate arrival time against route distance
+  useEffect(() => {
+    if (!form.arrivalTime || !form.departureTime || !form.routeId) { setArrivalWarning(null); return; }
+    const route = routes.find((r: any) => r.id === form.routeId);
+    if (!route?.distanceKm) { setArrivalWarning(null); return; }
+    const warning = validateArrival(extractTime(form.departureTime), extractTime(form.arrivalTime), route.distanceKm);
+    setArrivalWarning(warning);
+  }, [form.arrivalTime, form.departureTime, form.routeId, routes]);
 
   function updateTiming(stopId: string, field: keyof StopTiming, value: string) {
     setStopTimings((prev) => ({ ...prev, [stopId]: { ...prev[stopId], [field]: value } }));
@@ -256,14 +323,37 @@ function NewScheduleForm() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Arrival Time *</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Arrival Time *
+              {routeStops.length > 0 && (
+                <span className="ml-1 text-xs font-normal text-blue-500">(auto-calculated)</span>
+              )}
+            </label>
             <input
               type="datetime-local"
-              className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+              className={`w-full rounded-lg border p-2.5 text-sm ${
+                arrivalWarning ? "border-orange-400 bg-orange-50" :
+                routeStops.length > 0 ? "border-blue-200 bg-blue-50 text-gray-700" :
+                "border-gray-300"
+              }`}
               value={form.arrivalTime}
-              onChange={(e) => setForm((f) => ({ ...f, arrivalTime: e.target.value }))}
+              onChange={(e) => { setForm((f) => ({ ...f, arrivalTime: e.target.value })); }}
               required
             />
+            {(() => {
+              const route = routes.find((r: any) => r.id === form.routeId);
+              const distKm = route?.distanceKm;
+              if (!distKm) return null;
+              const est = estimateMins(distKm);
+              return (
+                <p className="mt-1 text-xs text-gray-400">
+                  {distKm} km route — estimated {fmtDuration(est)} at 50 km/h avg
+                </p>
+              );
+            })()}
+            {arrivalWarning && (
+              <p className="mt-1 text-xs font-medium text-orange-600">⚠ {arrivalWarning}</p>
+            )}
           </div>
         </div>
 

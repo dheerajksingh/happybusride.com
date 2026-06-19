@@ -70,7 +70,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ routeI
       data: { stopOrder: newIntermediates.length + 2 },
     });
 
-    // Recalculate cumulative distances
+    // Recalculate cumulative distances (CityDistance cache → Haversine fallback)
     const allStops = await prisma.routeStop.findMany({
       where: { routeId },
       orderBy: { stopOrder: "asc" },
@@ -83,6 +83,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ routeI
           : Promise.resolve()
       )
     );
+    // Sync route.distanceKm to the calculated total
+    const totalKm = cumulative[cumulative.length - 1];
+    if (totalKm !== null) {
+      await prisma.route.update({ where: { id: routeId }, data: { distanceKm: totalKm } });
+    }
 
     return NextResponse.json({ ok: true });
   }

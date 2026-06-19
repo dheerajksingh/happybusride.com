@@ -31,6 +31,25 @@ function extractTime(datetimeLocal: string): string {
   return datetimeLocal.includes("T") ? datetimeLocal.split("T")[1].slice(0, 5) : "";
 }
 
+function estimateMins(distanceKm: number): number {
+  return Math.round((distanceKm / 50) * 60);
+}
+
+function fmtDuration(mins: number): string {
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+function validateArrival(depTime: string, arrTime: string, distanceKm: number): string | null {
+  const actual = diffMins(depTime, arrTime);
+  const minMins = Math.round((distanceKm / 80) * 60);
+  const maxMins = Math.round((distanceKm / 25) * 60);
+  if (actual < minMins)
+    return `Too fast for ${distanceKm} km — minimum ${fmtDuration(minMins)} (at 80 km/h). Estimated: ${fmtDuration(estimateMins(distanceKm))}.`;
+  if (actual > maxMins)
+    return `Too long for ${distanceKm} km — maximum ${fmtDuration(maxMins)} (at 25 km/h). Estimated: ${fmtDuration(estimateMins(distanceKm))}.`;
+  return null;
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -64,6 +83,7 @@ export default function EditSchedulePage() {
   const [buses, setBuses] = useState<any[]>([]);
   const [routeStops, setRouteStops] = useState<any[]>([]);
   const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
+  const [arrivalWarning, setArrivalWarning] = useState<string | null>(null);
   const [form, setForm] = useState({
     routeId: "",
     busId: "",
@@ -140,6 +160,52 @@ export default function EditSchedulePage() {
     });
     setStopTimings(timings);
   }, [form.routeId, routes]);
+
+  // Auto-set arrivalTime: use last stop arrivalOffset if available, else estimate from distance
+  useEffect(() => {
+    if (routeStops.length === 0 || !form.departureTime) return;
+    const lastStop = routeStops[routeStops.length - 1];
+    const route = routes.find((r: any) => r.id === form.routeId);
+    const depTime = extractTime(form.departureTime);
+
+    let estMins: number | null = null;
+    if (lastStop.arrivalOffset != null && lastStop.arrivalOffset > 0) {
+      estMins = lastStop.arrivalOffset;
+    } else if (route?.distanceKm) {
+      estMins = estimateMins(route.distanceKm);
+    }
+    if (estMins == null) return;
+
+    const arrTimeOnly = addMins(depTime, estMins);
+    const [dh, dm] = depTime.split(":").map(Number);
+    const [ah, am] = arrTimeOnly.split(":").map(Number);
+    const depDate = new Date(form.departureTime);
+    const arrDate = new Date(depDate);
+    if (ah * 60 + am < dh * 60 + dm) arrDate.setDate(arrDate.getDate() + 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setForm((f) => ({ ...f, arrivalTime: `${arrDate.getFullYear()}-${pad(arrDate.getMonth() + 1)}-${pad(arrDate.getDate())}T${arrTimeOnly}` }));
+  }, [form.departureTime, routeStops, routes]);
+
+  // Sync form arrivalTime → last stop's arrival in the table
+  useEffect(() => {
+    if (routeStops.length === 0 || !form.arrivalTime) return;
+    const lastStop = routeStops[routeStops.length - 1];
+    const arrTimeOnly = extractTime(form.arrivalTime);
+    if (!arrTimeOnly) return;
+    setStopTimings((prev) => ({
+      ...prev,
+      [lastStop.id]: { ...prev[lastStop.id] ?? { stoppage: "0" }, arrival: arrTimeOnly },
+    }));
+  }, [form.arrivalTime, routeStops]);
+
+  // Validate arrival time against route distance
+  useEffect(() => {
+    if (!form.arrivalTime || !form.departureTime || !form.routeId) { setArrivalWarning(null); return; }
+    const route = routes.find((r: any) => r.id === form.routeId);
+    if (!route?.distanceKm) { setArrivalWarning(null); return; }
+    const warning = validateArrival(extractTime(form.departureTime), extractTime(form.arrivalTime), route.distanceKm);
+    setArrivalWarning(warning);
+  }, [form.arrivalTime, form.departureTime, form.routeId, routes]);
 
   function toggleDay(day: number) {
     setDaysOfWeek((prev) =>
@@ -237,14 +303,33 @@ export default function EditSchedulePage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Arrival Time *</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Arrival Time *
+              <span className="ml-1 text-xs font-normal text-blue-500">(auto-calculated)</span>
+            </label>
             <input
               type="datetime-local"
-              className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+              className={`w-full rounded-lg border p-2.5 text-sm ${
+                arrivalWarning ? "border-orange-400 bg-orange-50" : "border-blue-200 bg-blue-50 text-gray-700"
+              }`}
               value={form.arrivalTime}
               onChange={(e) => setForm((f) => ({ ...f, arrivalTime: e.target.value }))}
               required
             />
+            {(() => {
+              const route = routes.find((r: any) => r.id === form.routeId);
+              const distKm = route?.distanceKm;
+              if (!distKm) return null;
+              const est = estimateMins(distKm);
+              return (
+                <p className="mt-1 text-xs text-gray-400">
+                  {distKm} km route — estimated {fmtDuration(est)} at 50 km/h avg
+                </p>
+              );
+            })()}
+            {arrivalWarning && (
+              <p className="mt-1 text-xs font-medium text-orange-600">⚠ {arrivalWarning}</p>
+            )}
           </div>
         </div>
 

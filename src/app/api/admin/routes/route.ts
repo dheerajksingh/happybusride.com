@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     include: { stops: { orderBy: { stopOrder: "asc" } }, fromCity: true, toCity: true },
   });
 
-  // Back-fill cumulative distances from CityDistance cache
+  // Back-fill cumulative distances (CityDistance cache → Haversine fallback)
   const cumulative = await calcCumulativeDistances(route.stops);
   await Promise.all(
     route.stops.map((stop, i) =>
@@ -64,6 +64,12 @@ export async function POST(req: Request) {
         : Promise.resolve()
     )
   );
+
+  // If distanceKm was not provided, set it from the calculated total
+  const totalKm = cumulative[cumulative.length - 1];
+  if (totalKm !== null && !data.distanceKm) {
+    await prisma.route.update({ where: { id: route.id }, data: { distanceKm: totalKm } });
+  }
 
   return NextResponse.json(route, { status: 201 });
 }
