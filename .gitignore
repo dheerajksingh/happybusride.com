@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — ignore local secret overrides, commit .env with safe defaults
+# env files — never commit secrets; use .env.example for safe defaults
+.env
 .env*.local
+!.env.example
 
 # vercel
 .vercel
