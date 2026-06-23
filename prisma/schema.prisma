@@ -1494,3 +1494,30 @@ model AgentOperatorMessage {
   @@index([agentId, operatorId])
   @@map("agent_operator_messages")
 }
+
+// ============================================================
+// TRANSACTIONAL OUTBOX (event generation on committed writes)
+// ============================================================
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
+model OutboxEvent {
+  id          String       @id @default(cuid())
+  aggregate   String       // e.g. "FreightBooking"
+  aggregateId String
+  type        String       // e.g. "freight.booking.created"
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  lastError   String?
+  createdAt   DateTime     @default(now())
+  publishedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}
