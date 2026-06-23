@@ -123,8 +123,15 @@ async function findFreightOptions(
   }
 
   const agentByCity   = new Map(allAgents.map(a => [a.cityId, a]));
+  const originPct     = Number(agentConfig?.agentOriginPct  ?? 5)  / 100;
   const interimPct    = Number(agentConfig?.agentInterimPct ?? 10) / 100;
   const finalPct      = Number(agentConfig?.agentFinalPct   ?? 5)  / 100;
+
+  // Freight needs an approved agent at every handover point of the journey:
+  // the origin (drop-off / loading), each transfer city, and the destination
+  // (collection). Origin and destination are the same for every candidate path,
+  // so if either lacks an agent no valid option can exist.
+  if (!agentByCity.has(fromCityId) || !agentByCity.has(toCityId)) return [];
 
   // Collect all tripIds across all viable paths for a single capacity batch query
   type ResolvedLeg = { leg: PathLeg; schedule: typeof schedules[0]; trip: typeof schedules[0]["trips"][0] };
@@ -132,7 +139,7 @@ async function findFreightOptions(
 
   for (const path of allPaths) {
     const intermediates = path.slice(0, -1).map(l => l.toCityId);
-    if (intermediates.some(c => !agentByCity.has(c))) continue; // need agent at each transfer
+    if (intermediates.some(c => !agentByCity.has(c))) continue; // need agent at each transfer (origin + destination already checked above)
 
     const resolved: ResolvedLeg[] = [];
     let valid = true;
@@ -157,13 +164,20 @@ async function findFreightOptions(
   });
 
   const usedByTrip = new Map<string, { kg: number; cm3: number }>();
+  // A booking can have multiple legs on the same trip (e.g. an ORIGIN + FINAL
+  // pair on a direct shipment), so count each booking's cargo once per trip.
+  const counted = new Set<string>();
   for (const leg of usedLegs) {
-    const cur = usedByTrip.get(leg.tripId!) ?? { kg: 0, cm3: 0 };
+    if (!leg.tripId) continue;
+    const key = `${leg.tripId}|${leg.bookingId}`;
+    if (counted.has(key)) continue;
+    counted.add(key);
+    const cur = usedByTrip.get(leg.tripId) ?? { kg: 0, cm3: 0 };
     for (const item of leg.booking.items) {
       cur.kg   += Number(item.weightKg);
       cur.cm3  += item.lengthCm * item.breadthCm * item.heightCm;
     }
-    usedByTrip.set(leg.tripId!, cur);
+    usedByTrip.set(leg.tripId, cur);
   }
 
   const availCap = (tripId: string) => {
@@ -218,6 +232,9 @@ async function findFreightOptions(
 
     const freightCost = calcPrice(totalKg, totalCm3, totalDist, pricingConfig?.generatedFn);
     const intermediates = resolved.slice(0, -1).map(r => r.leg.toCityId);
+    // Origin handling: the sending agent picks the cargo up and loads it onto
+    // the bus. Charged to the customer and earned by the origin agent.
+    const originCost    = agentByCity.has(fromCityId) ? Math.round(freightCost * originPct) : 0;
     const interimCost   = intermediates.length * Math.round(freightCost * interimPct);
     const finalCost     = agentByCity.has(toCityId) ? Math.round(freightCost * finalPct) : 0;
     if (builtLegs[builtLegs.length - 1].destinationAgent) {
@@ -245,8 +262,9 @@ async function findFreightOptions(
       legs: builtLegs,
       transfers,
       freightCost,
-      agentCost:   interimCost + finalCost,
-      totalCost:   freightCost + interimCost + finalCost,
+      originCharge: originCost,
+      agentCost:   originCost + interimCost + finalCost,
+      totalCost:   freightCost + originCost + interimCost + finalCost,
       availableKg:  Math.min(...resolved.map(r => availCap(r.trip.id).kg)),
       availableCm3: Math.min(...resolved.map(r => availCap(r.trip.id).cm3)),
       ...(agentByCity.has(toCityId) ? { destinationAgent: agentByCity.get(toCityId), finalAgentCharge: finalCost } : {}),

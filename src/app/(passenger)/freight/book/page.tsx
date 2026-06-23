@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { buildBookingLegs } from "@/lib/freight-legs";
 
 export default function FreightBookPage() {
   const router  = useRouter();
-  const { data: session } = useSession();
+  const { status } = useSession();
   const [option, setOption]   = useState<any>(null);
   const [search, setSearch]   = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -25,31 +26,26 @@ export default function FreightBookPage() {
     setSearch(JSON.parse(src));
   }, []);
 
+  // Sender must be logged in — send guests to login and bring them back here.
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace(`/login?callbackUrl=${encodeURIComponent("/freight/book")}`);
+    }
+  }, [status, router]);
+
   function upd(f: string, v: string | number) { setForm(p => ({ ...p, [f]: v })); }
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
-    if (!option || !search || !session) return;
+    if (!option || !search) return;
+    if (status !== "authenticated") {
+      router.push(`/login?callbackUrl=${encodeURIComponent("/freight/book")}`);
+      return;
+    }
     setLoading(true); setError("");
 
-    // Build legs with transfer types
-    const legs = option.legs.map((leg: any, i: number) => {
-      const isFinal = i === option.legs.length - 1;
-      const isFirst = i === 0;
-      return {
-        tripId:       leg.tripId,
-        fromStopId:   leg.fromStopId,
-        toStopId:     leg.toStopId,
-        distanceKm:   leg.distanceKm,
-        transferType: isFirst ? "ORIGIN" : isFinal ? "FINAL" : "INTERIM",
-        agentId:      isFinal && leg.destinationAgent?.agentId
-          ? leg.destinationAgent.agentId
-          : (option.transfers[i - 1]?.agentId ?? undefined),
-        agentCharge:  isFinal && leg.destinationAgent
-          ? (leg.agentCharge ?? 0)
-          : (option.transfers[i - 1]?.agentCharge ?? 0),
-      };
-    });
+    // Build legs with transfer types (direct shipments split into ORIGIN + FINAL)
+    const legs = buildBookingLegs(option.legs, option.transfers, option.originCharge);
 
     // Build items (one item entry per description)
     const items = [{
@@ -80,10 +76,27 @@ export default function FreightBookPage() {
       }),
     });
 
+    if (res.status === 401) {
+      setLoading(false);
+      router.push(`/login?callbackUrl=${encodeURIComponent("/freight/book")}`);
+      return;
+    }
+
     const data = await res.json();
+
+    if (!res.ok) { setLoading(false); setError(data.error ?? "Booking failed"); return; }
+
+    // Confirm payment — this is what moves the booking to CONFIRMED and
+    // notifies the assigned agents.
+    const payRes = await fetch("/api/freight/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: data.bookingId, paymentId: data.paymentId }),
+    });
+    const payData = await payRes.json();
     setLoading(false);
 
-    if (!res.ok) { setError(data.error ?? "Booking failed"); return; }
+    if (!payRes.ok) { setError(payData.error ?? "Payment failed"); return; }
     sessionStorage.removeItem("freightOption");
     sessionStorage.removeItem("freightSearch");
     router.push(`/freight/success/${data.bookingRef}`);
@@ -92,7 +105,8 @@ export default function FreightBookPage() {
   const inputCls = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-amber-500 focus:outline-none";
   const labelCls = "mb-1 block text-sm font-medium text-gray-700";
 
-  if (!option) return <div className="py-12 text-center text-gray-400">Loading…</div>;
+  if (!option || status === "loading") return <div className="py-12 text-center text-gray-400">Loading…</div>;
+  if (status === "unauthenticated") return <div className="py-12 text-center text-gray-400">Redirecting to login…</div>;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -171,7 +185,7 @@ export default function FreightBookPage() {
         </div>
 
         <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
-          📱 The recipient will receive a QR code to collect the freight from the agent at the destination. Both sender and recipient must be app members to track status.
+          📱 The recipient will receive a QR code to collect the freight from the agent at the destination. No account needed — just share the booking reference and they can track it at any time.
         </div>
 
         {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>}

@@ -21,6 +21,14 @@ const LEG_STATUS_STYLE: Record<string, string> = {
   COLLECTED:      "bg-green-100 text-green-700",
 };
 
+// A leg is stale if the trip date has passed but freight was never loaded
+function isStale(leg: any): boolean {
+  if (!["PENDING", "AGENT_RECEIVED"].includes(leg.status)) return false;
+  const travelDate = leg.trip?.travelDate;
+  if (!travelDate) return false;
+  return new Date(travelDate) < new Date(new Date().toDateString());
+}
+
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-2 text-sm">
@@ -43,7 +51,7 @@ export default function OperatorFreightPage() {
   const [freights, setFreights] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
-  const [filter, setFilter] = useState<"all" | "upcoming" | "in_transit">("upcoming");
+  const [filter, setFilter] = useState<"all" | "upcoming" | "in_transit" | "stale">("upcoming");
 
   useEffect(() => {
     fetch("/api/operator/freight")
@@ -51,9 +59,12 @@ export default function OperatorFreightPage() {
       .then(d => { setFreights(d.freights ?? []); setLoading(false); });
   }, []);
 
+  const staleCount = freights.filter(isStale).length;
+
   const filtered = freights.filter(f => {
-    if (filter === "upcoming") return ["PENDING", "AGENT_RECEIVED"].includes(f.status);
+    if (filter === "upcoming") return ["PENDING", "AGENT_RECEIVED"].includes(f.status) && !isStale(f);
     if (filter === "in_transit") return ["LOADED", "IN_TRANSIT", "AGENT_AT_NEXT"].includes(f.status);
+    if (filter === "stale") return isStale(f);
     return true;
   });
 
@@ -73,10 +84,15 @@ export default function OperatorFreightPage() {
           {([
             { key: "upcoming",   label: "Upcoming" },
             { key: "in_transit", label: "In Transit" },
+            { key: "stale",      label: `Stale${staleCount > 0 ? ` (${staleCount})` : ""}` },
             { key: "all",        label: "All" },
           ] as const).map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${filter === f.key ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+                filter === f.key
+                  ? f.key === "stale" ? "bg-red-500 shadow text-white" : "bg-white shadow text-gray-900"
+                  : f.key === "stale" && staleCount > 0 ? "text-red-600 hover:text-red-700" : "text-gray-500 hover:text-gray-700"
+              }`}>
               {f.label}
             </button>
           ))}
@@ -91,13 +107,33 @@ export default function OperatorFreightPage() {
           ) : filtered.map((f: any) => (
             <div key={f.id}
               onClick={() => setSelected(f)}
-              className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-sm ${selected?.id === f.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"}`}>
+              className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-sm ${
+                isStale(f) ? "border-red-300 bg-red-50" :
+                selected?.id === f.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"
+              }`}>
               <div className="flex items-start justify-between mb-1">
                 <div className="font-medium text-gray-900 text-sm">
                   {f.fromStop?.city?.name} → {f.toStop?.city?.name}
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEG_STATUS_STYLE[f.status]}`}>
-                  {f.status?.replace(/_/g, " ")}
+                {isStale(f) ? (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                    ⚠ Stale
+                  </span>
+                ) : (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEG_STATUS_STYLE[f.status]}`}>
+                    {f.status?.replace(/_/g, " ")}
+                  </span>
+                )}
+              </div>
+              {isStale(f) && (
+                <p className="text-xs text-red-600 mb-1">
+                  Bus departed {f.trip?.travelDate ? format(new Date(f.trip.travelDate), "d MMM") : ""} — freight not loaded
+                </p>
+              )}
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-xs text-gray-400">Booking:</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[f.booking?.status]}`}>
+                  {f.booking?.status?.replace(/_/g, " ")}
                 </span>
               </div>
               <div className="text-xs text-gray-500">
@@ -125,16 +161,29 @@ export default function OperatorFreightPage() {
           </div>
         ) : (
           <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 text-lg">Freight Details</h2>
-              <div className="flex gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[selected.booking?.status]}`}>
-                  {selected.booking?.status?.replace(/_/g, " ")}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEG_STATUS_STYLE[selected.status]}`}>
-                  Leg: {selected.status?.replace(/_/g, " ")}
-                </span>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-gray-900 text-lg">Freight Details</h2>
+                <div className="flex gap-2 items-center flex-wrap justify-end">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400">Booking:</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[selected.booking?.status]}`}>
+                      {selected.booking?.status?.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400">Leg:</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEG_STATUS_STYLE[selected.status]}`}>
+                      {selected.status?.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
               </div>
+              {isStale(selected) && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  ⚠ <strong>Stale freight</strong> — the bus departed on {selected.trip?.travelDate ? format(new Date(selected.trip.travelDate), "d MMM yyyy") : "an earlier date"} but this freight was never loaded. Contact the sender to arrange re-booking.
+                </div>
+              )}
             </div>
 
             <Section title="Freight">

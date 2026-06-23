@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { initiatePayment } from "@/lib/payment";
 import { z } from "zod";
 
 const itemSchema = z.object({
@@ -50,6 +51,14 @@ export async function POST(req: NextRequest) {
     const data = schema.parse(body);
 
     const booking = await prisma.$transaction(async (tx) => {
+      // The ORIGIN leg's handling agent is the approved agent in the origin city.
+      // Search guarantees one exists; persist it so the origin agent is recorded
+      // and notified alongside the transfer/destination agents.
+      const originAgent = await tx.agent.findFirst({
+        where:  { cityId: data.fromCityId, status: "APPROVED" },
+        select: { id: true },
+      });
+
       const fb = await tx.freightBooking.create({
         data: {
           senderId:         session.user.id,
@@ -83,13 +92,16 @@ export async function POST(req: NextRequest) {
               transferType: leg.transferType,
               tripId:       leg.tripId,
               distanceKm:   leg.distanceKm,
-              agentId:      leg.agentId ?? null,
+              agentId:      leg.agentId ?? (leg.transferType === "ORIGIN" ? originAgent?.id ?? null : null),
               agentCharge:  leg.agentCharge,
             })),
           },
         },
         include: { items: true, legs: true },
       });
+
+      // No outbox event here: the booking is still PENDING_PAYMENT. Agents are
+      // notified only once payment is confirmed — see /api/freight/confirm.
 
       // Record agent commission if booked by agent
       if (data.bookedByAgentId) {
@@ -109,7 +121,24 @@ export async function POST(req: NextRequest) {
       return fb;
     });
 
-    return NextResponse.json({ booking, bookingRef: booking.bookingRef }, { status: 201 });
+    // Initiate a mock payment for the booking. The passenger confirms it via
+    // /api/freight/confirm, which flips the booking to CONFIRMED and notifies
+    // the assigned agents.
+    const payment = await initiatePayment(booking.id, data.totalCost, "UPI");
+    await prisma.freightPayment.create({
+      data: {
+        freightBookingId: booking.id,
+        amount:           data.totalCost,
+        method:           "UPI",
+        status:           "PENDING",
+        gatewayTxnId:     payment.gatewayTxnId,
+      },
+    });
+
+    return NextResponse.json(
+      { booking, bookingId: booking.id, bookingRef: booking.bookingRef, paymentId: payment.paymentId },
+      { status: 201 }
+    );
   } catch (err: any) {
     if (err?.issues) return NextResponse.json({ error: err.issues[0].message }, { status: 400 });
     return NextResponse.json({ error: "Booking failed" }, { status: 500 });

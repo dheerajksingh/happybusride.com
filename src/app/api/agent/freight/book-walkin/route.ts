@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordEvent } from "@/lib/outbox";
+import { relayNow } from "@/lib/outbox-relay";
 import { z } from "zod";
 
 const schema = z.object({
@@ -57,11 +59,20 @@ export async function POST(req: NextRequest) {
   const originPct   = Number(config?.agentOriginPct   ?? 5)  / 100;
   const commPct     = Number(config?.agentFreightComm  ?? 5)  / 100;
 
-  // AgentOrigin charge: agent picks up freight from sender and brings to bus station
+  // AgentOrigin charge: agent picks up freight from sender and brings to bus
+  // station. Origin handling is already included in body.agentCost by the
+  // search endpoint, so it's NOT re-added to the total here — originCharge is
+  // kept only to record the origin agent's earning below.
   const originCharge = Math.round(body.freightCost * originPct);
-  const totalCost    = body.freightCost + body.agentCost + originCharge;
+  const totalCost    = body.freightCost + body.agentCost;
 
   const booking = await prisma.$transaction(async (tx) => {
+    // Origin-city approved agent — assigned to the ORIGIN leg for handling/notification.
+    const originAgent = await tx.agent.findFirst({
+      where:  { cityId: body.fromCityId, status: "APPROVED" },
+      select: { id: true },
+    });
+
     // ── Find or create walk-in user by phone ──────────────────
     let walkinUser = await tx.user.findUnique({ where: { phone: body.sender.phone } });
 
@@ -88,7 +99,7 @@ export async function POST(req: NextRequest) {
         toCityId:          body.toCityId,
         shippingDate:      new Date(body.shippingDate),
         freightCost:       body.freightCost,
-        agentCost:         body.agentCost + originCharge,
+        agentCost:         body.agentCost,
         totalCost,
         recipientName:     body.recipientName,
         recipientPhone:    body.recipientPhone,
@@ -113,12 +124,33 @@ export async function POST(req: NextRequest) {
             transferType: leg.transferType,
             tripId:       leg.tripId,
             distanceKm:   leg.distanceKm,
-            agentId:      leg.agentId ?? null,
+            agentId:      leg.agentId ?? (leg.transferType === "ORIGIN" ? originAgent?.id ?? null : null),
             agentCharge:  leg.agentCharge,
           })),
         },
       },
       include: { items: true, legs: true },
+    });
+
+    // Cash collected at source — record the payment as already settled.
+    await tx.freightPayment.create({
+      data: {
+        freightBookingId: fb.id,
+        amount:           totalCost,
+        method:           "CASH",
+        status:           "SUCCESS",
+        completedAt:      new Date(),
+      },
+    });
+
+    // Outbox event — commits atomically with the booking; relay emails leg agents.
+    // The walk-in booking is created CONFIRMED (paid in cash), so agents are
+    // notified immediately, mirroring the post-payment passenger flow.
+    await recordEvent(tx, {
+      aggregate:   "FreightBooking",
+      aggregateId: fb.id,
+      type:        "freight.booking.created",
+      payload:     { bookingRef: fb.bookingRef },
     });
 
     const today = new Date();
@@ -147,6 +179,9 @@ export async function POST(req: NextRequest) {
 
     return { booking: fb, walkinUserId: walkinUser!.id, isNewUser: !walkinUser };
   });
+
+  // Email every agent assigned to a leg now that the booking is committed.
+  await relayNow();
 
   return NextResponse.json({
     bookingRef:  booking.booking.bookingRef,

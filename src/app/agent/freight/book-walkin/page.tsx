@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
 import type { City } from "@/components/ui/CityAutocomplete";
+import { buildBookingLegs } from "@/lib/freight-legs";
 
 const WEIGHT_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50, 75, 100];
 const DIM_OPTIONS    = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200];
@@ -10,7 +11,7 @@ const DIM_OPTIONS    = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200];
 const inputCls = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-orange-500 focus:outline-none";
 const labelCls = "mb-1 block text-sm font-medium text-gray-700";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 export default function AgentFreightWalkInPage() {
   const router = useRouter();
@@ -18,10 +19,7 @@ export default function AgentFreightWalkInPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Step 1 — sender
-  const [sender, setSender] = useState({ name: "", phone: "", email: "", address: "" });
-
-  // Step 2 — cargo search
+  // Step 1 — bus search (route, date, cargo)
   const [from, setFrom]     = useState<City | null>(null);
   const [to, setTo]         = useState<City | null>(null);
   const [date, setDate]     = useState("");
@@ -29,31 +27,29 @@ export default function AgentFreightWalkInPage() {
   const [length, setLength] = useState(30);
   const [breadth, setBreadth] = useState(30);
   const [height, setHeight]   = useState(30);
+  const [itemDescription, setItemDescription] = useState("");
   const [searching, setSearching] = useState(false);
   const [options, setOptions]     = useState<any[]>([]);
-  const [itemDescription, setItemDescription] = useState("");
 
-  // Step 3 — selected option
+  // Step 2 — selected option
   const [selected, setSelected] = useState<any>(null);
 
-  // Step 4 — recipient
+  // Step 3 — sender + recipient
+  const [sender, setSender] = useState({ name: "", phone: "", email: "", address: "" });
   const [recipient, setRecipient] = useState({
     name: "", phone: "", whatsapp: "", email: "", address: "",
   });
 
-  // ── Step helpers ──────────────────────────────────────────────
-
-  function validateStep1() {
-    if (!sender.name.trim())    { setError("Sender name is required"); return false; }
-    if (sender.phone.length < 10) { setError("Valid phone number required (min 10 digits)"); return false; }
-    if (!sender.address.trim()) { setError("Sender address is required"); return false; }
-    return true;
-  }
+  // ── Step 1: search buses for the shipping date ────────────────
+  // A booking can only proceed when a bus runs on the date AND an agent
+  // is available on every leg (origin, transfers, destination). The search
+  // API enforces this; here we only carry forward when it returns options.
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!from || !to) { setError("Select both cities"); return; }
+    if (from.id === to.id) { setError("From and To cities must be different"); return; }
     if (!date)        { setError("Select shipping date"); return; }
     setSearching(true);
 
@@ -68,41 +64,36 @@ export default function AgentFreightWalkInPage() {
 
     if (!data.options?.length) {
       const msg = data.availableDates?.length
-        ? `No shipping on this date. Try: ${data.availableDates.join(", ")}`
-        : "No shipping available for this route.";
+        ? `No bus + agent coverage on this date. Try: ${data.availableDates.join(", ")}`
+        : "No bus available with agent coverage on every leg for this route.";
       setError(msg);
+      setOptions([]);
       return;
     }
     setOptions(data.options);
-    setStep(3);
+    setSelected(null);
+    setStep(2);
+  }
+
+  function validateDetails() {
+    if (!sender.name.trim())        { setError("Sender name is required"); return false; }
+    if (sender.phone.length < 10)   { setError("Valid sender phone required (min 10 digits)"); return false; }
+    if (!sender.address.trim())     { setError("Sender address is required"); return false; }
+    if (!recipient.name.trim())     { setError("Recipient name required"); return false; }
+    if (recipient.phone.length < 10){ setError("Valid recipient phone required"); return false; }
+    if (!recipient.address.trim())  { setError("Recipient address required"); return false; }
+    return true;
   }
 
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!recipient.name.trim()  ) { setError("Recipient name required"); return; }
-    if (recipient.phone.length < 10) { setError("Valid recipient phone required"); return; }
-    if (!recipient.address.trim()) { setError("Recipient address required"); return; }
+    if (!selected) { setError("Select a shipping option first"); setStep(2); return; }
+    if (!validateDetails()) return;
 
     setSubmitting(true);
 
-    const legs = selected.legs.map((leg: any, i: number) => {
-      const isFinal = i === selected.legs.length - 1;
-      const isFirst = i === 0;
-      return {
-        tripId:       leg.tripId,
-        fromStopId:   leg.fromStopId,
-        toStopId:     leg.toStopId,
-        distanceKm:   leg.distanceKm,
-        transferType: isFirst ? "ORIGIN" : isFinal ? "FINAL" : "INTERIM",
-        agentId:      isFinal && leg.destinationAgent?.agentId
-          ? leg.destinationAgent.agentId
-          : (selected.transfers[i - 1]?.agentId ?? undefined),
-        agentCharge:  isFinal && leg.destinationAgent
-          ? (leg.agentCharge ?? 0)
-          : (selected.transfers[i - 1]?.agentCharge ?? 0),
-      };
-    });
+    const legs = buildBookingLegs(selected.legs, selected.transfers, selected.originCharge);
 
     const res = await fetch("/api/agent/freight/book-walkin", {
       method: "POST",
@@ -133,7 +124,7 @@ export default function AgentFreightWalkInPage() {
 
   // ── Render ────────────────────────────────────────────────────
 
-  const stepLabels = ["Sender", "Cargo", "Options", "Recipient"];
+  const stepLabels = ["Buses", "Options", "Sender & Recipient"];
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -142,7 +133,7 @@ export default function AgentFreightWalkInPage() {
         <button onClick={() => router.push("/agent/freight")} className="text-sm text-gray-500 hover:text-gray-700">← Back</button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Book for Walk-in Customer</h1>
-          <p className="text-sm text-gray-500">Create a freight booking on behalf of a non-member sender</p>
+          <p className="text-sm text-gray-500">Find a bus with agent coverage first, then add sender & recipient</p>
         </div>
       </div>
 
@@ -170,44 +161,14 @@ export default function AgentFreightWalkInPage() {
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-600">{error}</div>
       )}
 
-      {/* ── Step 1: Sender details ── */}
+      {/* ── Step 1: Bus search ── */}
       {step === 1 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Walk-in Sender Details</h2>
-          <p className="text-xs text-gray-500">
-            A platform account will be created for this person using their phone number.
-            They can log in later via OTP to track their shipment.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Full Name *</label>
-              <input className={inputCls} value={sender.name} onChange={e => setSender(p => ({ ...p, name: e.target.value }))} placeholder="Sender's full name" />
-            </div>
-            <div>
-              <label className={labelCls}>Phone Number *</label>
-              <input className={inputCls} type="tel" value={sender.phone} onChange={e => setSender(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit mobile number" />
-            </div>
-          </div>
-          <div>
-            <label className={labelCls}>Email</label>
-            <input className={inputCls} type="email" value={sender.email} onChange={e => setSender(p => ({ ...p, email: e.target.value }))} placeholder="optional" />
-          </div>
-          <div>
-            <label className={labelCls}>Sender Address *</label>
-            <textarea rows={2} className={inputCls} value={sender.address} onChange={e => setSender(p => ({ ...p, address: e.target.value }))} placeholder="House / street / area of sender" />
-          </div>
-          <button
-            onClick={() => { setError(""); if (validateStep1()) { setError(""); setStep(2); } }}
-            className="w-full rounded-xl bg-orange-500 py-2.5 font-semibold text-white hover:bg-orange-600">
-            Next: Cargo Details →
-          </button>
-        </div>
-      )}
-
-      {/* ── Step 2: Cargo search ── */}
-      {step === 2 && (
         <form onSubmit={handleSearch} className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Cargo & Route</h2>
+          <h2 className="font-semibold text-gray-900">Search Buses</h2>
+          <p className="text-xs text-gray-500">
+            We&apos;ll only show options where a bus runs on the shipping date and an agent
+            is available at the origin, every transfer, and the destination.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <CityAutocomplete label="From City" value={from?.name ?? ""} onChange={setFrom} placeholder="Origin city…" />
             <CityAutocomplete label="To City"   value={to?.name   ?? ""} onChange={setTo}   placeholder="Destination city…" />
@@ -248,22 +209,19 @@ export default function AgentFreightWalkInPage() {
               </select>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(1)} className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
-            <button type="submit" disabled={searching} className="flex-1 rounded-xl bg-orange-500 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
-              {searching ? "Searching…" : "Find Shipping Options →"}
-            </button>
-          </div>
+          <button type="submit" disabled={searching} className="w-full rounded-xl bg-orange-500 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
+            {searching ? "Searching…" : "Find Buses →"}
+          </button>
         </form>
       )}
 
-      {/* ── Step 3: Pick option ── */}
-      {step === 3 && (
+      {/* ── Step 2: Pick option ── */}
+      {step === 2 && (
         <div className="space-y-4">
           <h2 className="font-semibold text-gray-900">Choose a Shipping Option</h2>
           {options.map((opt, i) => (
             <div key={i}
-              onClick={() => { setSelected(opt); setError(""); setStep(4); }}
+              onClick={() => { setSelected(opt); setError(""); setStep(3); }}
               className="cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-orange-400 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${opt.type === "DIRECT" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
@@ -289,22 +247,49 @@ export default function AgentFreightWalkInPage() {
               </div>
             </div>
           ))}
-          <button onClick={() => setStep(2)} className="w-full rounded-xl border border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Modify Search</button>
+          <button onClick={() => setStep(1)} className="w-full rounded-xl border border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Modify Search</button>
         </div>
       )}
 
-      {/* ── Step 4: Recipient + confirm ── */}
-      {step === 4 && selected && (
+      {/* ── Step 3: Sender + Recipient + confirm ── */}
+      {step === 3 && selected && (
         <form onSubmit={handleConfirm} className="space-y-4">
           {/* Selected option summary */}
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
             <div className="font-semibold text-amber-800 mb-1">
-              {selected.type === "DIRECT" ? "Direct" : "Via Transfer"} · {from?.name} → {to?.name}
+              {selected.type === "DIRECT" ? "Direct" : "Via Transfer"} · {from?.name} → {to?.name} · {date}
             </div>
             {selected.legs.map((l: any, i: number) => (
               <div key={i} className="text-amber-700 text-xs">{l.fromCityName} → {l.toCityName} ({l.busName})</div>
             ))}
-            <button type="button" onClick={() => setStep(3)} className="mt-1 text-xs text-amber-600 underline">Change option</button>
+            <button type="button" onClick={() => setStep(2)} className="mt-1 text-xs text-amber-600 underline">Change option</button>
+          </div>
+
+          {/* Sender details */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <h2 className="font-semibold text-gray-900">Sender Details</h2>
+            <p className="text-xs text-gray-500">
+              A platform account will be created for this person using their phone number.
+              They can log in later via OTP to track their shipment.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Full Name *</label>
+                <input className={inputCls} value={sender.name} onChange={e => setSender(p => ({ ...p, name: e.target.value }))} placeholder="Sender's full name" />
+              </div>
+              <div>
+                <label className={labelCls}>Phone Number *</label>
+                <input className={inputCls} type="tel" value={sender.phone} onChange={e => setSender(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit mobile number" />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Email</label>
+              <input className={inputCls} type="email" value={sender.email} onChange={e => setSender(p => ({ ...p, email: e.target.value }))} placeholder="optional" />
+            </div>
+            <div>
+              <label className={labelCls}>Sender Address *</label>
+              <textarea rows={2} className={inputCls} value={sender.address} onChange={e => setSender(p => ({ ...p, address: e.target.value }))} placeholder="House / street / area of sender" />
+            </div>
           </div>
 
           {/* Recipient details */}
@@ -359,11 +344,11 @@ export default function AgentFreightWalkInPage() {
           </div>
 
           <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
-            ℹ️ Booking is auto-confirmed. The sender ({sender.name}, {sender.phone}) gets a platform account and can track their shipment via OTP login.
+            ℹ️ Booking is auto-confirmed. The sender ({sender.name || "—"}, {sender.phone || "—"}) gets a platform account and can track their shipment via OTP login.
           </div>
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(3)} className="flex-1 rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
+            <button type="button" onClick={() => setStep(2)} className="flex-1 rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
             <button type="submit" disabled={submitting} className="flex-1 rounded-xl bg-orange-500 py-3 font-bold text-white hover:bg-orange-600 disabled:opacity-50">
               {submitting ? "Confirming…" : "Confirm Booking"}
             </button>
