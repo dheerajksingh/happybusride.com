@@ -625,7 +625,12 @@ model SeatLock {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@unique([tripId, seatId])
+  // Segment the lock covers (null = whole route). Lets a seat be locked for one
+  // segment while remaining lockable/bookable for a non-overlapping segment.
+  boardingStopId String?
+  droppingStopId String?
+
+  @@index([tripId, seatId])
   @@index([expiresAt])
   @@map("seat_locks")
 }
@@ -649,6 +654,11 @@ model Booking {
   totalAmount        Decimal       @db.Decimal(10, 2)
   boardingStopId     String?
   droppingStopId     String?
+  // Snapshot of the boarding/dropping stop positions at booking time, so seat
+  // overlap math stays stable even if the route's stops are later reordered or
+  // removed. Null on legacy rows → callers fall back to live stop resolution.
+  boardingStopOrder  Int?
+  droppingStopOrder  Int?
   cancelledAt        DateTime?
   cancellationReason String?
   qrToken            String        @unique @default(cuid())
@@ -697,7 +707,10 @@ model BookingsSeat {
   seat      Seat    @relation(fields: [seatId], references: [id])
   tripId    String
 
-  @@unique([tripId, seatId])
+  // No longer unique on (tripId, seatId): a seat may be sold to different
+  // passengers for non-overlapping segments of the same trip. Overlap is
+  // enforced in application code (segment availability + lock serialization).
+  @@index([tripId, seatId])
   @@map("bookings_seats")
 }
 

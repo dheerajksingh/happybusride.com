@@ -26,7 +26,7 @@ interface SearchResult {
   availableSeats: number;
 }
 
-export function BusCard({ result, date }: { result: SearchResult; date: string }) {
+export function BusCard({ result, date, from, to }: { result: SearchResult; date: string; from?: string; to?: string }) {
   const dep = new Date(result.departureTime);
   const arr = new Date(result.arrivalTime);
   const arrIsNextDay = arr.toDateString() !== dep.toDateString();
@@ -112,7 +112,7 @@ export function BusCard({ result, date }: { result: SearchResult; date: string }
           </p>
           {result.availableSeats > 0 ? (
             <Link
-              href={`/bus/${result.scheduleId}?date=${date}`}
+              href={`/bus/${result.scheduleId}?date=${date}${from ? `&from=${from}` : ""}${to ? `&to=${to}` : ""}`}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Select Seats

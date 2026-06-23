@@ -7,6 +7,8 @@ import { lockSeats, releaseSeats } from "@/lib/seat-lock";
 const lockSchema = z.object({
   tripId: z.string().min(1),
   seatIds: z.array(z.string()).min(1).max(6),
+  boardingStopId: z.string().optional(),
+  droppingStopId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -17,9 +19,9 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tripId, seatIds } = lockSchema.parse(body);
+    const { tripId, seatIds, boardingStopId, droppingStopId } = lockSchema.parse(body);
 
-    const result = await lockSeats(tripId, seatIds, session.user.id);
+    const result = await lockSeats(tripId, seatIds, session.user.id, { boardingStopId, droppingStopId });
 
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 409 });

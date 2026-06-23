@@ -25,6 +25,10 @@ export async function GET(req: Request) {
                     include: {
                       fromCity: { select: { name: true } },
                       toCity: { select: { name: true } },
+                      stops: {
+                        select: { id: true, stopName: true, city: { select: { name: true } } },
+                        orderBy: { stopOrder: "asc" },
+                      },
                     },
                   },
                   bus: { select: { name: true, busType: true } },
@@ -43,7 +47,17 @@ export async function GET(req: Request) {
       prisma.booking.count({ where: { userId: session.user.id } }),
     ]);
 
-    return NextResponse.json({ bookings, total, page, pages: Math.ceil(total / limit) });
+    // Attach the booked segment (boarding/dropping stop) resolved from route stops.
+    const withSegment = bookings.map((b) => {
+      const stops = b.trip.schedule.route.stops;
+      return {
+        ...b,
+        boardingStop: b.boardingStopId ? stops.find((s) => s.id === b.boardingStopId) ?? null : null,
+        droppingStop: b.droppingStopId ? stops.find((s) => s.id === b.droppingStopId) ?? null : null,
+      };
+    });
+
+    return NextResponse.json({ bookings: withSegment, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

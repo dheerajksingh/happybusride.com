@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { resolveSegment, segmentDistanceKm, segmentFare, occupantInterval, segmentsOverlap, bookingInterval } from "@/lib/segment";
 
 const schema = z.object({
   from: z.string().min(1),
@@ -79,10 +80,9 @@ export async function GET(req: Request) {
             travelDate: { gte: travelDate, lte: travelDateEnd },
           },
           include: {
-            _count: { select: { bookings: true } },
             seatLocks: {
               where: { expiresAt: { gte: new Date() } },
-              select: { seatId: true },
+              select: { seatId: true, boardingStopId: true, droppingStopId: true },
             },
           },
         },
@@ -95,43 +95,57 @@ export async function GET(req: Request) {
           : { baseFare: "asc" },
     });
 
+    // Segment-aware occupancy: booked seats (with their segments) for the result trips.
+    const tripIds = schedules.map((s) => s.trips[0]?.id).filter(Boolean) as string[];
+    const bookedSeatRows = tripIds.length
+      ? await prisma.bookingsSeat.findMany({
+          where: {
+            tripId: { in: tripIds },
+            booking: { status: { notIn: ["CANCELLED_USER", "CANCELLED_OPERATOR", "REFUNDED"] } },
+          },
+          select: {
+            tripId: true,
+            seatId: true,
+            booking: { select: { boardingStopId: true, droppingStopId: true, boardingStopOrder: true, droppingStopOrder: true } },
+          },
+        })
+      : [];
+    type BookedSeat = (typeof bookedSeatRows)[number];
+    const bookedByTrip = new Map<string, BookedSeat[]>();
+    for (const r of bookedSeatRows) {
+      const arr = bookedByTrip.get(r.tripId) ?? [];
+      arr.push(r);
+      bookedByTrip.set(r.tripId, arr);
+    }
+
     // Step 4: enrich with boarding/alighting stop info, segment distance, and proportional fare
     const results = schedules.map((schedule) => {
       const trip = schedule.trips[0];
-      const bookedSeats = trip?._count?.bookings ?? 0;
-      const lockedSeats = trip?.seatLocks?.length ?? 0;
-      const availableSeats = schedule.bus.totalSeats - bookedSeats - lockedSeats;
-
       const stops = schedule.route.stops;
-      const boardingStop  = stops.find((s) => s.cityId === params.from);
-      const alightingStop = stops.find((s) => s.cityId === params.to);
-
       const totalDistance = schedule.route.distanceKm ?? 0;
-
-      // Segment distance — use stored cumulative distances if available, else fall back to stop-order proportion
-      const fromDist = boardingStop?.distanceFromOriginKm ?? null;
-      const toDist   = alightingStop?.distanceFromOriginKm ?? null;
-      const segmentDistance = (fromDist !== null && toDist !== null)
-        ? toDist - fromDist
-        : (() => {
-            const totalStops = stops.length;
-            const fromOrder  = boardingStop?.stopOrder  ?? 1;
-            const toOrder    = alightingStop?.stopOrder ?? totalStops;
-            return totalStops > 1
-              ? Math.round(totalDistance * (toOrder - fromOrder) / (totalStops - 1))
-              : totalDistance;
-          })();
-
-      // Fare — check for an exact stop-pair fare rule first, else proportional
-      const exactRule = schedule.fareRules.find(
-        (r) => r.fromStop?.cityId === params.from && r.toStop?.cityId === params.to
-      );
       const baseFare = Number(schedule.baseFare);
-      const segmentFare = exactRule
-        ? Number(exactRule.price)
-        : totalDistance > 0
-          ? Math.round(baseFare * segmentDistance / totalDistance)
-          : baseFare;
+
+      // Resolve the segment + its fare/distance via the shared helper, so the
+      // price shown here matches what the seat page and payment charge.
+      const seg = resolveSegment(stops, { fromCityId: params.from, toCityId: params.to });
+      const boardingStop  = stops.find((s) => s.id === seg.boardingStop.id);
+      const alightingStop = stops.find((s) => s.id === seg.droppingStop.id);
+      const segmentDistance = Math.round(segmentDistanceKm(totalDistance, stops, seg));
+      const segmentFareValue = segmentFare(baseFare, totalDistance, stops, seg, schedule.fareRules);
+
+      // Count DISTINCT seats whose booking or active lock overlaps the searched segment.
+      const occupied = new Set<string>();
+      if (trip) {
+        for (const bk of bookedByTrip.get(trip.id) ?? []) {
+          const iv = bookingInterval(stops, bk.booking);
+          if (segmentsOverlap(seg.boardingOrder, seg.droppingOrder, iv.board, iv.drop)) occupied.add(bk.seatId);
+        }
+        for (const lk of trip.seatLocks) {
+          const iv = occupantInterval(stops, lk.boardingStopId, lk.droppingStopId);
+          if (segmentsOverlap(seg.boardingOrder, seg.droppingOrder, iv.board, iv.drop)) occupied.add(lk.seatId);
+        }
+      }
+      const availableSeats = Math.max(0, schedule.bus.totalSeats - occupied.size);
 
       // Adjust times to boarding/alighting stop offsets
       const boardingOffset  = boardingStop?.departureOffset ?? 0;
@@ -158,7 +172,7 @@ export async function GET(req: Request) {
         bus: schedule.bus,
         departureTime: boardingTime.toISOString(),   // time at boarding stop
         arrivalTime: alightingTime.toISOString(),     // time at alighting stop
-        baseFare: segmentFare,
+        baseFare: segmentFareValue,
         fullRouteFare: baseFare,
         fareRules: schedule.fareRules,
         availableSeats: Math.max(0, availableSeats),

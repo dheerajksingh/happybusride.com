@@ -223,7 +223,7 @@ function SearchContent() {
             ) : (
               <div className="flex flex-col gap-4">
                 {results.map((r) => (
-                  <BusCard key={r.scheduleId} result={r} date={date} />
+                  <BusCard key={r.scheduleId} result={r} date={date} from={from} to={to} />
                 ))}
               </div>
             )}

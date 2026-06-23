@@ -17,6 +17,8 @@ interface BookingData {
   convenienceFee: number;
   passengers: { name: string; age: number; gender: string; seatId: string }[];
   seats: { seat: { seatNumber: string } }[];
+  boardingStop?: { stopName: string; city: { name: string }; departureOffset: number | null } | null;
+  droppingStop?: { stopName: string; city: { name: string }; arrivalOffset: number | null } | null;
   trip: {
     travelDate: string;
     schedule: {
@@ -54,6 +56,25 @@ export function QRTicket({ booking }: { booking: BookingData }) {
   if (arrTime.getUTCHours() * 60 + arrTime.getUTCMinutes() < depTime.getUTCHours() * 60 + depTime.getUTCMinutes()) {
     arr.setDate(arr.getDate() + 1);
   }
+
+  // For a partial-segment booking, adjust times/labels to the boarding & dropping
+  // stops; fall back to the full route for whole-route (or legacy) bookings.
+  const fromName = booking.boardingStop?.city.name ?? booking.trip.schedule.route.fromCity.name;
+  const toName   = booking.droppingStop?.city.name ?? booking.trip.schedule.route.toCity.name;
+  if (booking.boardingStop?.departureOffset != null) {
+    dep.setTime(new Date(
+      travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(),
+      depTime.getUTCHours(), depTime.getUTCMinutes(),
+    ).getTime());
+    dep.setMinutes(dep.getMinutes() + booking.boardingStop.departureOffset);
+  }
+  if (booking.droppingStop?.arrivalOffset != null) {
+    arr.setTime(new Date(
+      travelDate.getUTCFullYear(), travelDate.getUTCMonth(), travelDate.getUTCDate(),
+      depTime.getUTCHours(), depTime.getUTCMinutes(),
+    ).getTime());
+    arr.setMinutes(arr.getMinutes() + booking.droppingStop.arrivalOffset);
+  }
   const seatNums = booking.seats.map((s) => s.seat.seatNumber).join(", ");
 
   return (
@@ -74,7 +95,10 @@ export function QRTicket({ booking }: { booking: BookingData }) {
       <div className="flex items-center justify-between px-6 py-4">
         <div>
           <p className="text-2xl font-bold text-gray-900">{format(dep, "HH:mm")}</p>
-          <p className="text-sm font-medium text-gray-600">{booking.trip.schedule.route.fromCity.name}</p>
+          <p className="text-sm font-medium text-gray-600">{fromName}</p>
+          {booking.boardingStop?.stopName && booking.boardingStop.stopName !== fromName && (
+            <p className="text-xs text-gray-400">{booking.boardingStop.stopName}</p>
+          )}
         </div>
         <div className="flex flex-col items-center gap-1 text-gray-400">
           <div className="flex items-center gap-1">
@@ -86,7 +110,10 @@ export function QRTicket({ booking }: { booking: BookingData }) {
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-gray-900">{format(arr, "HH:mm")}</p>
-          <p className="text-sm font-medium text-gray-600">{booking.trip.schedule.route.toCity.name}</p>
+          <p className="text-sm font-medium text-gray-600">{toName}</p>
+          {booking.droppingStop?.stopName && booking.droppingStop.stopName !== toName && (
+            <p className="text-xs text-gray-400">{booking.droppingStop.stopName}</p>
+          )}
         </div>
       </div>
 

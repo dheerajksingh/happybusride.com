@@ -25,6 +25,10 @@ function ReviewContent() {
   const tripId = params.get("tripId") ?? "";
   const date = params.get("date") ?? "";
   const seatIds = (params.get("seats") ?? "").split(",").filter(Boolean);
+  const fromCity = params.get("from") ?? "";
+  const toCity = params.get("to") ?? "";
+  const boardingStopId = params.get("boardingStopId") ?? "";
+  const droppingStopId = params.get("droppingStopId") ?? "";
 
   const [tripData, setTripData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,8 @@ function ReviewContent() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/schedules/${scheduleId}/seats?date=${date}`);
+      const qs = new URLSearchParams({ date, ...(fromCity ? { from: fromCity } : {}), ...(toCity ? { to: toCity } : {}) });
+      const res = await fetch(`/api/schedules/${scheduleId}/seats?${qs}`);
       if (res.ok) {
         const data = await res.json();
         setTripData(data);
@@ -78,7 +83,7 @@ function ReviewContent() {
       setLoading(false);
     }
     if (scheduleId && date && seatIds.length > 0) load();
-  }, [scheduleId, date]);
+  }, [scheduleId, date, fromCity, toCity]);
 
   // Fetch luggage charge when excess weight changes
   useEffect(() => {
@@ -156,6 +161,8 @@ function ReviewContent() {
         amount: fare.totalAmount + luggageCharge + pickupPrice + dropoffPrice + cabPickupPrice + cabDropoffPrice,
         method: "UPI",
         seatIds,
+        ...(boardingStopId ? { boardingStopId } : {}),
+        ...(droppingStopId ? { droppingStopId } : {}),
         passengers: passengers.map((p) => ({
           name: p.name,
           age: Number(p.age),

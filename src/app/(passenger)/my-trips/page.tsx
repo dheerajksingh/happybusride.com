@@ -14,6 +14,8 @@ interface Booking {
   totalAmount: number;
   createdAt: string;
   seats: { seat: { seatNumber: string } }[];
+  boardingStop: { stopName: string; city: { name: string } } | null;
+  droppingStop: { stopName: string; city: { name: string } } | null;
   trip: {
     travelDate: string;
     schedule: {
@@ -197,7 +199,7 @@ export default function MyTripsPage() {
                       <div className="flex-1">
                         <div className="mb-1 flex items-center gap-2">
                           <span className="font-bold text-gray-900">
-                            {b.trip.schedule.route.fromCity.name} → {b.trip.schedule.route.toCity.name}
+                            {(b.boardingStop?.city.name ?? b.trip.schedule.route.fromCity.name)} → {(b.droppingStop?.city.name ?? b.trip.schedule.route.toCity.name)}
                           </span>
                           {bookingStatusBadge(b.status)}
                         </div>

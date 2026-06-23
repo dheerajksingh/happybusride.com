@@ -50,14 +50,20 @@ export async function GET(req: Request) {
   });
 
   const tripIds = trips.map((t) => t.id);
-  const bookedCounts = await prisma.bookingsSeat.groupBy({
-    by: ["tripId"],
-    where: { tripId: { in: tripIds } },
-    _count: { seatId: true },
+  // Count DISTINCT physically-occupied seats per trip among active bookings.
+  // A seat sold to different passengers on non-overlapping segments produces
+  // multiple BookingsSeat rows for one seat, so we de-duplicate (and exclude
+  // cancelled/refunded bookings) to keep occupancy ≤ 100%.
+  const occupiedSeats = await prisma.bookingsSeat.findMany({
+    where: {
+      tripId: { in: tripIds },
+      booking: { status: { notIn: ["CANCELLED_USER", "CANCELLED_OPERATOR", "REFUNDED"] } },
+    },
+    select: { tripId: true, seatId: true },
+    distinct: ["tripId", "seatId"],
   });
-  const bookedByTrip: Record<string, number> = Object.fromEntries(
-    bookedCounts.map((b) => [b.tripId, b._count.seatId])
-  );
+  const bookedByTrip: Record<string, number> = {};
+  for (const s of occupiedSeats) bookedByTrip[s.tripId] = (bookedByTrip[s.tripId] ?? 0) + 1;
 
   const tripsWithOccupancy = trips.map((trip) => ({
     ...trip,

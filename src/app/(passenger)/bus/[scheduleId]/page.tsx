@@ -17,6 +17,9 @@ interface SeatData {
   departureTime: string;
   arrivalTime: string;
   baseFare: number;
+  fullRouteFare?: number;
+  boardingStopId?: string;
+  droppingStopId?: string;
   fareRules: { seatType: string; price: number }[];
   seats: any[];
 }
@@ -25,6 +28,8 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
   const { scheduleId } = use(params);
   const searchParams = useSearchParams();
   const date = searchParams.get("date") ?? "";
+  const from = searchParams.get("from") ?? "";
+  const to = searchParams.get("to") ?? "";
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -37,7 +42,8 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/schedules/${scheduleId}/seats?date=${date}`);
+      const qs = new URLSearchParams({ date, ...(from ? { from } : {}), ...(to ? { to } : {}) });
+      const res = await fetch(`/api/schedules/${scheduleId}/seats?${qs}`);
       if (res.ok) {
         const d = await res.json();
         setData(d);
@@ -45,7 +51,7 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
       setLoading(false);
     }
     if (scheduleId && date) load();
-  }, [scheduleId, date]);
+  }, [scheduleId, date, from, to]);
 
   // Countdown timer for seat lock
   useEffect(() => {
@@ -79,7 +85,12 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
     const res = await fetch("/api/seats/lock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tripId: data.tripId, seatIds: selected }),
+      body: JSON.stringify({
+        tripId: data.tripId,
+        seatIds: selected,
+        boardingStopId: data.boardingStopId,
+        droppingStopId: data.droppingStopId,
+      }),
     });
 
     const json = await res.json();
@@ -98,6 +109,10 @@ export default function SeatSelectionPage({ params }: { params: Promise<{ schedu
       tripId: data.tripId,
       date,
       seats: selected.join(","),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      ...(data.boardingStopId ? { boardingStopId: data.boardingStopId } : {}),
+      ...(data.droppingStopId ? { droppingStopId: data.droppingStopId } : {}),
     });
     router.push(`/booking/review?${params}`);
   }

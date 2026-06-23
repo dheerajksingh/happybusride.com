@@ -46,7 +46,12 @@ export async function GET(
 
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-    return NextResponse.json(booking);
+    // Attach the booked segment (boarding/dropping stop) resolved from route stops.
+    const stops = booking.trip.schedule.route.stops;
+    const boardingStop = booking.boardingStopId ? stops.find((s) => s.id === booking.boardingStopId) ?? null : null;
+    const droppingStop = booking.droppingStopId ? stops.find((s) => s.id === booking.droppingStopId) ?? null : null;
+
+    return NextResponse.json({ ...booking, boardingStop, droppingStop });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
