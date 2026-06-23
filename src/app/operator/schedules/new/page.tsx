@@ -113,7 +113,7 @@ function NewScheduleForm() {
     Promise.all([
       fetch("/api/operator/routes?all=true").then((r) => r.json()),
       fetch("/api/operator/buses?available=true").then((r) => r.json()),
-      fetch("/api/operator/drivers").then((r) => r.json()),
+      fetch("/api/operator/drivers?available=true").then((r) => r.json()),
     ]).then(([r, b, d]) => {
       setRoutes(Array.isArray(r) ? r : []);
       setBuses(Array.isArray(b) ? b : []);
@@ -303,11 +303,14 @@ function NewScheduleForm() {
             value={form.driverId}
             onChange={(e) => setForm((f) => ({ ...f, driverId: e.target.value }))}
           >
-            <option value="">Select driver (optional)</option>
+            <option value="">No driver assigned</option>
             {drivers.map((d: any) => (
               <option key={d.id} value={d.id}>{d.user?.name} ({d.licenseNumber})</option>
             ))}
           </select>
+          {drivers.length === 0 && (
+            <p className="mt-1 text-xs text-orange-600">All drivers are already assigned to active schedules.</p>
+          )}
         </div>
 
         {/* Departure / Arrival */}

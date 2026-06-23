@@ -81,12 +81,14 @@ export default function EditSchedulePage() {
   const [saving, setSaving] = useState(false);
   const [routes, setRoutes] = useState<any[]>([]);
   const [buses, setBuses] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [routeStops, setRouteStops] = useState<any[]>([]);
   const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
   const [arrivalWarning, setArrivalWarning] = useState<string | null>(null);
   const [form, setForm] = useState({
     routeId: "",
     busId: "",
+    driverId: "",
     departureTime: "",
     arrivalTime: "",
     baseFare: "",
@@ -100,7 +102,9 @@ export default function EditSchedulePage() {
       fetch(`/api/operator/schedules/${scheduleId}`).then((r) => r.json()),
       fetch("/api/operator/routes?all=true").then((r) => r.json()),
       fetch("/api/operator/buses").then((r) => r.json()),
-    ]).then(([s, r, b]) => {
+      fetch("/api/operator/drivers?available=true").then((r) => r.json()),
+    ]).then(([s, r, b, d]) => {
+      setDrivers(Array.isArray(d) ? d : []);
       if (s && !s.error) {
         const dep = new Date(s.departureTime);
         const arr = new Date(s.arrivalTime);
@@ -111,6 +115,7 @@ export default function EditSchedulePage() {
         setForm({
           routeId: s.routeId,
           busId: s.busId,
+          driverId: s.driverId ?? "",
           departureTime: toLocal(dep),
           arrivalTime: toLocal(arr),
           baseFare: String(Number(s.baseFare)),
@@ -289,6 +294,29 @@ export default function EditSchedulePage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Default Driver</label>
+          <select
+            className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            value={form.driverId}
+            onChange={(e) => setForm((f) => ({ ...f, driverId: e.target.value }))}
+          >
+            <option value="">No driver assigned</option>
+            {/* Always show the currently-assigned driver even if not in available list */}
+            {form.driverId && !drivers.find((d: any) => d.id === form.driverId) && (
+              <option value={form.driverId}>Current driver (assigned)</option>
+            )}
+            {drivers.map((d: any) => (
+              <option key={d.id} value={d.id}>
+                {d.user?.name} ({d.licenseNumber})
+              </option>
+            ))}
+          </select>
+          {drivers.length === 0 && (
+            <p className="mt-1 text-xs text-orange-600">All drivers are already assigned to active schedules.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">

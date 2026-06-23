@@ -13,15 +13,28 @@ const driverSchema = z.object({
   password: z.string().min(8),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session || session.user.role !== "OPERATOR") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
   if (!operator) return NextResponse.json([]);
 
+  const { searchParams } = new URL(req.url);
+  const availableOnly = searchParams.get("available") === "true";
+
+  const scheduledDriverIds = availableOnly
+    ? (await prisma.schedule.findMany({
+        where: { bus: { operatorId: operator.id }, isActive: true, driverId: { not: null } },
+        select: { driverId: true },
+      })).map((s) => s.driverId as string)
+    : [];
+
   const drivers = await prisma.driver.findMany({
-    where: { operatorId: operator.id },
+    where: {
+      operatorId: operator.id,
+      ...(availableOnly ? { id: { notIn: scheduledDriverIds } } : {}),
+    },
     include: { user: { select: { name: true, email: true, phone: true, isActive: true } } },
   });
 
