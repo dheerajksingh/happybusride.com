@@ -20,7 +20,7 @@ async function handleBookingCreated(bookingId: string) {
     include: {
       fromCity: { select: { name: true } },
       toCity:   { select: { name: true } },
-      sender:   { select: { name: true, phone: true } },
+      sender:   { select: { name: true, phone: true, email: true } },
       items:    true,
       legs: {
         orderBy: { legOrder: "asc" },
@@ -76,7 +76,7 @@ A new freight booking has been assigned to you.
 Booking ref: ${booking.bookingRef}
 Route: ${booking.fromCity.name} → ${booking.toCity.name}
 Shipping date: ${shipDate}
-Sender: ${booking.sender?.name ?? "—"} (${booking.sender?.phone ?? "—"})
+Sender: ${booking.senderName ?? booking.sender?.name ?? "—"} (${booking.senderPhone ?? booking.sender?.phone ?? "—"})
 Recipient: ${booking.recipientName} (${booking.recipientPhone})
 
 Items:
@@ -96,6 +96,57 @@ Please log in to the agent portal to receive and manage this shipment.`;
 
   if (skipped > 0) {
     console.warn(`[outbox] booking ${booking.bookingRef}: ${skipped} agent(s) had no email and were not notified`);
+  }
+
+  const route       = `${booking.fromCity.name} → ${booking.toCity.name}`;
+  const senderName  = booking.senderName ?? booking.sender?.name ?? "there";
+  const senderPhone = booking.senderPhone ?? booking.sender?.phone ?? "—";
+
+  // Confirmation to the sender (the account holder / walk-in customer).
+  const senderEmail = booking.sender?.email ?? null;
+  if (senderEmail) {
+    await sendEmail({
+      to: senderEmail,
+      subject: `Freight booked — ${booking.bookingRef} (${route})`,
+      text:
+`Hello ${senderName},
+
+Your freight booking is confirmed.
+
+Booking ref: ${booking.bookingRef}
+Route: ${route}
+Shipping date: ${shipDate}
+Recipient: ${booking.recipientName} (${booking.recipientPhone})
+
+Items:
+${itemsText}
+
+Total: ₹${Number(booking.totalCost)}
+
+Track your shipment any time using booking reference ${booking.bookingRef}.`,
+    });
+  }
+
+  // Notification to the recipient (no account required — collect with the ref/QR).
+  if (booking.recipientEmail) {
+    await sendEmail({
+      to: booking.recipientEmail,
+      subject: `A shipment is on its way — ${booking.bookingRef} (${route})`,
+      text:
+`Hello ${booking.recipientName},
+
+A freight shipment has been booked for you.
+
+Booking ref: ${booking.bookingRef}
+Route: ${route}
+Shipping date: ${shipDate}
+Sender: ${senderName} (${senderPhone})
+
+Items:
+${itemsText}
+
+Collect it from our agent at ${booking.toCity.name} using booking reference ${booking.bookingRef}. Show this reference (or your QR code) to receive the freight.`,
+    });
   }
 }
 

@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
     const fb = await tx.freightBooking.create({
       data: {
         senderId:          walkinUser.id,
+        senderName:        body.sender.name,
+        senderPhone:       body.sender.phone,
         bookedByAgentId:   agentId,
         fromCityId:        body.fromCityId,
         toCityId:          body.toCityId,

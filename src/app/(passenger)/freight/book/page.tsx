@@ -6,17 +6,29 @@ import { buildBookingLegs } from "@/lib/freight-legs";
 
 export default function FreightBookPage() {
   const router  = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const [option, setOption]   = useState<any>(null);
   const [search, setSearch]   = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
   const [form, setForm] = useState({
+    senderName: "", senderPhone: "",
     recipientName: "", recipientPhone: "", recipientWhatsapp: "",
     recipientEmail: "", recipientAddress: "",
     itemDescription: "", itemCount: 1,
   });
+
+  // Prefill the sender from the logged-in account when available.
+  useEffect(() => {
+    const u = session?.user as { name?: string | null; phone?: string | null } | undefined;
+    if (!u) return;
+    setForm(p => ({
+      ...p,
+      senderName:  p.senderName  || u.name  || "",
+      senderPhone: p.senderPhone || u.phone || "",
+    }));
+  }, [session]);
 
   useEffect(() => {
     const opt = sessionStorage.getItem("freightOption");
@@ -68,6 +80,8 @@ export default function FreightBookPage() {
         freightCost:      option.freightCost,
         agentCost:        option.agentCost,
         totalCost:        option.totalCost,
+        senderName:       form.senderName,
+        senderPhone:      form.senderPhone,
         recipientName:    form.recipientName,
         recipientPhone:   form.recipientPhone,
         recipientWhatsapp: form.recipientWhatsapp || undefined,
@@ -139,6 +153,21 @@ export default function FreightBookPage() {
           </div>
           <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
             {search?.weight} kg · {search?.length}×{search?.breadth}×{search?.height} cm
+          </div>
+        </div>
+
+        {/* Sender */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+          <h2 className="font-semibold text-gray-900">Sender Details</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Full Name *</label>
+              <input required className={inputCls} value={form.senderName} onChange={e => upd("senderName", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Phone *</label>
+              <input required className={inputCls} value={form.senderPhone} onChange={e => upd("senderPhone", e.target.value)} />
+            </div>
           </div>
         </div>
 

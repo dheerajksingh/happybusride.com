@@ -31,6 +31,8 @@ const schema = z.object({
   freightCost:      z.number(),
   agentCost:        z.number(),
   totalCost:        z.number(),
+  senderName:       z.string().min(1),
+  senderPhone:      z.string().min(10),
   recipientName:    z.string().min(1),
   recipientPhone:   z.string().min(10),
   recipientWhatsapp: z.string().optional(),
@@ -62,6 +64,8 @@ export async function POST(req: NextRequest) {
       const fb = await tx.freightBooking.create({
         data: {
           senderId:         session.user.id,
+          senderName:       data.senderName,
+          senderPhone:      data.senderPhone,
           bookedByAgentId:  data.bookedByAgentId ?? null,
           fromCityId:       data.fromCityId,
           toCityId:         data.toCityId,

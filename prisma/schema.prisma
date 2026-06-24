@@ -1191,6 +1191,11 @@ model FreightBooking {
 
   senderId        String
   sender          User   @relation("FreightSender", fields: [senderId], references: [id])
+  // Sender contact captured at booking time (denormalized like the recipient
+  // fields), so notifications show the actual sender even when the account has
+  // no name on file (e.g. OTP passengers).
+  senderName      String?
+  senderPhone     String?
   bookedByAgentId String?
   bookedByAgent   Agent? @relation("AgentFreightBooker", fields: [bookedByAgentId], references: [id])
 
