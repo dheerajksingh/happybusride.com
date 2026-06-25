@@ -10,6 +10,7 @@ import { PageSpinner } from "@/components/ui/Spinner";
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type StopTiming = { arrival: string; stoppage: string };
+type FreightSpace = { label: string; lengthCm: number; widthCm: number; heightCm: number };
 
 function addMins(time: string, mins: number): string {
   if (!time) return "";
@@ -153,6 +154,7 @@ export default function EditSchedulePage() {
     isActive: true,
   });
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
+  const [freightSpaces, setFreightSpaces] = useState<FreightSpace[]>([]);
   const [regenerateTrips, setRegenerateTrips] = useState(false);
 
   useEffect(() => {
@@ -180,6 +182,7 @@ export default function EditSchedulePage() {
           isActive: s.isActive,
         });
         setDaysOfWeek(s.daysOfWeek ?? []);
+        setFreightSpaces(Array.isArray(s.freightSpaces) ? s.freightSpaces : []);
 
         // Load stops from the route included in schedule response
         const stops = s.route?.stops ?? [];
@@ -228,6 +231,16 @@ export default function EditSchedulePage() {
     setDaysOfWeek((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
     );
+  }
+
+  function addFreightSpace() {
+    setFreightSpaces((prev) => [...prev, { label: `Space ${prev.length + 1}`, lengthCm: 100, widthCm: 100, heightCm: 100 }]);
+  }
+  function updateFreightSpace(i: number, field: keyof FreightSpace, value: string | number) {
+    setFreightSpaces((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+  }
+  function removeFreightSpace(i: number) {
+    setFreightSpaces((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   const depTimeOnly = extractTime(form.departureTime);
@@ -285,6 +298,7 @@ export default function EditSchedulePage() {
         ...form,
         baseFare: Number(form.baseFare),
         daysOfWeek,
+        freightSpaces,
         regenerateTrips,
         stopOffsets: stopOffsetsPayload,
       }),
@@ -493,6 +507,46 @@ export default function EditSchedulePage() {
             <p className="mt-1 text-xs text-gray-400">Saved times shown; change the route or departure to recalculate from distance. Edit an arrival or stoppage and the following stops recalculate. Departure = Arrival + Stoppage.</p>
           </div>
         )}
+
+        {/* Freight spaces */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Freight Spaces</label>
+            <button type="button" onClick={addFreightSpace} className="text-xs text-blue-600 hover:underline">
+              + Add Space
+            </button>
+          </div>
+          {freightSpaces.length === 0 && (
+            <p className="text-xs text-gray-400">No freight spaces defined.</p>
+          )}
+          {freightSpaces.map((space, i) => (
+            <div key={i} className="mb-2 rounded-lg border border-gray-200 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <input
+                  className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 w-32"
+                  value={space.label}
+                  onChange={(e) => updateFreightSpace(i, "label", e.target.value)}
+                  placeholder="Space label"
+                />
+                <button type="button" onClick={() => removeFreightSpace(i)} className="text-xs text-red-500 hover:underline">Remove</button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(["lengthCm", "widthCm", "heightCm"] as const).map((dim) => (
+                  <div key={dim}>
+                    <label className="mb-0.5 block text-xs text-gray-500">{dim.replace("Cm", " (cm)")}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                      value={space[dim]}
+                      onChange={(e) => updateFreightSpace(i, dim, Number(e.target.value))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
 
         <Input
           label="Base Fare (₹) *"

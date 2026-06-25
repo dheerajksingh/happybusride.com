@@ -21,6 +21,12 @@ const updateSchema = z.object({
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
   isActive: z.boolean().optional(),
   regenerateTrips: z.boolean().optional(),
+  freightSpaces: z.array(z.object({
+    label: z.string(),
+    lengthCm: z.number(),
+    widthCm: z.number(),
+    heightCm: z.number(),
+  })).optional(),
   stopOffsets: z.array(stopOffsetSchema).optional(),
 });
 
@@ -78,12 +84,13 @@ export async function PUT(req: Request, { params }: Params) {
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const { regenerateTrips, daysOfWeek, stopOffsets, ...data } = updateSchema.parse(body);
+  const { regenerateTrips, daysOfWeek, stopOffsets, freightSpaces, ...data } = updateSchema.parse(body);
 
   const updateData: Record<string, unknown> = { ...data };
   if (data.departureTime) updateData.departureTime = new Date(data.departureTime);
   if (data.arrivalTime) updateData.arrivalTime = new Date(data.arrivalTime);
   if (daysOfWeek !== undefined) updateData.daysOfWeek = daysOfWeek;
+  if (freightSpaces !== undefined) updateData.freightSpaces = freightSpaces;
 
   const schedule = await prisma.schedule.update({
     where: { id: scheduleId },
