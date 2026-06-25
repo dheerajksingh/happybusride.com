@@ -5,6 +5,22 @@ const DEFAULT_CAPACITY_KG   = 500;
 const DEFAULT_CAPACITY_CM3  = 1_000_000;
 const MAX_LEGS = 5; // max route switches + 1
 
+// Total cargo volume (cm³) from a schedule's configured freight spaces
+// (Schedule.freightSpaces JSON: [{ label, lengthCm, widthCm, heightCm }]).
+// Falls back to the default when a schedule defines no spaces. Weight has no
+// per-schedule field, so it keeps DEFAULT_CAPACITY_KG.
+function spaceVolumeCm3(freightSpaces: unknown): number {
+  if (!Array.isArray(freightSpaces) || freightSpaces.length === 0) return DEFAULT_CAPACITY_CM3;
+  let total = 0;
+  for (const s of freightSpaces as Array<Record<string, unknown>>) {
+    const l = Number(s?.lengthCm) || 0;
+    const w = Number(s?.widthCm)  || 0;
+    const h = Number(s?.heightCm) || 0;
+    total += l * w * h;
+  }
+  return total > 0 ? total : DEFAULT_CAPACITY_CM3;
+}
+
 // ── Inline price calculator (no DB call — config passed in) ───
 
 function calcPrice(
@@ -122,6 +138,14 @@ async function findFreightOptions(
     schedByRoute.get(s.routeId)!.push(s);
   }
 
+  // Per-trip cargo capacity derived from each schedule's configured freight
+  // spaces (volume) — used by availCap below instead of the flat default.
+  const capByTrip = new Map<string, { kg: number; cm3: number }>();
+  for (const s of schedules) {
+    const cm3 = spaceVolumeCm3(s.freightSpaces);
+    for (const t of s.trips) capByTrip.set(t.id, { kg: DEFAULT_CAPACITY_KG, cm3 });
+  }
+
   const agentByCity   = new Map(allAgents.map(a => [a.cityId, a]));
   const originPct     = Number(agentConfig?.agentOriginPct  ?? 5)  / 100;
   const interimPct    = Number(agentConfig?.agentInterimPct ?? 10) / 100;
@@ -182,9 +206,10 @@ async function findFreightOptions(
 
   const availCap = (tripId: string) => {
     const used = usedByTrip.get(tripId) ?? { kg: 0, cm3: 0 };
+    const cap  = capByTrip.get(tripId) ?? { kg: DEFAULT_CAPACITY_KG, cm3: DEFAULT_CAPACITY_CM3 };
     return {
-      kg:  Math.max(0, DEFAULT_CAPACITY_KG  - used.kg),
-      cm3: Math.max(0, DEFAULT_CAPACITY_CM3 - used.cm3),
+      kg:  Math.max(0, cap.kg  - used.kg),
+      cm3: Math.max(0, cap.cm3 - used.cm3),
     };
   };
 
