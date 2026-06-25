@@ -20,6 +20,7 @@ frontend:
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production.local
         - echo "AWS_BUCKET_NAME=$BUCKET_NAME" >> .env.production.local
         - echo "AWS_REGION=$REGION" >> .env.production.local
+        - echo "SES_FROM_EMAIL=$SES_FROM_EMAIL" >> .env.production.local
         - echo "AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID" >> .env.production.local
         - echo "AWS_SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY" >> .env.production.local
         - echo "OTP_DEV_CODE=$OTP_DEV_CODE" >> .env.production.local
