@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -79,6 +79,66 @@ function segmentDistKm(stop: any, prevStop: any): string {
   return "—";
 }
 
+const STOP_DWELL_MINS = 5; // default minutes a bus halts at each intermediate stop
+
+// Cumulative km from origin for each stop. Prefers the stored
+// distanceFromOriginKm; falls back to summing Haversine between consecutive
+// city coordinates when distances aren't stored on the route.
+function cumulativeKm(stops: any[]): number[] {
+  const cum: number[] = [];
+  let running = 0;
+  stops.forEach((s, i) => {
+    if (s.distanceFromOriginKm != null) {
+      running = Number(s.distanceFromOriginKm);
+    } else if (i > 0) {
+      const p = stops[i - 1];
+      const lat1 = Number(p.city?.latitude), lng1 = Number(p.city?.longitude);
+      const lat2 = Number(s.city?.latitude), lng2 = Number(s.city?.longitude);
+      if (lat1 && lng1 && lat2 && lng2) running += haversineKm(lat1, lng1, lat2, lng2);
+    }
+    cum.push(running);
+  });
+  return cum;
+}
+
+// Forward cascade: recompute arrivals from `fromIdx` onward. Each stop's arrival
+// = the previous stop's DEPARTURE (its arrival + its stoppage) + travel time for
+// the inter-stop distance (50 km/h). Stops before `fromIdx` keep their values
+// (operator edits), and every stoppage is preserved. Origin arrival = departure.
+// With a blank departure, arrivals stay blank until the operator enters one.
+function cascade(
+  stops: any[],
+  cum: number[],
+  depTime: string,
+  prior: Record<string, StopTiming>,
+  fromIdx: number,
+): Record<string, StopTiming> {
+  const out: Record<string, StopTiming> = {};
+  stops.forEach((s, i) => {
+    if (i === 0) { out[s.id] = { arrival: depTime, stoppage: "0" }; return; }
+    const isLast = i === stops.length - 1;
+    const stoppage = isLast ? "0" : (prior[s.id]?.stoppage ?? String(STOP_DWELL_MINS));
+    if (i < fromIdx) { out[s.id] = prior[s.id] ?? { arrival: "", stoppage }; return; }
+    const prev = out[stops[i - 1].id];
+    const prevDep = i - 1 === 0
+      ? depTime
+      : (prev?.arrival ? addMins(prev.arrival, Number(prev.stoppage || 0)) : "");
+    const segKm = (cum[i] ?? 0) - (cum[i - 1] ?? 0);
+    out[s.id] = { arrival: prevDep ? addMins(prevDep, estimateMins(segKm)) : "", stoppage };
+  });
+  return out;
+}
+
+// Build the form's datetime-local arrival string (handles past-midnight rollover).
+function arrivalDateTime(depDateTime: string, depTime: string, arrTime: string): string {
+  if (!depDateTime || !depTime || !arrTime) return "";
+  const [dh, dm] = depTime.split(":").map(Number);
+  const [ah, am] = arrTime.split(":").map(Number);
+  const arrDate = new Date(depDateTime);
+  if (ah * 60 + am < dh * 60 + dm) arrDate.setDate(arrDate.getDate() + 1);
+  return `${arrDate.toISOString().slice(0, 10)}T${arrTime}`;
+}
+
 function NewScheduleForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,20 +154,17 @@ function NewScheduleForm() {
   const [stopTimings, setStopTimings] = useState<Record<string, StopTiming>>({});
   const [arrivalWarning, setArrivalWarning] = useState<string | null>(null);
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
   const [form, setForm] = useState({
     routeId: defaultRouteId,
     busId: "",
     driverId: "",
-    departureTime: `${tomorrowStr}T21:00`,
-    arrivalTime: `${new Date(tomorrow.getTime() + 86400000).toISOString().slice(0, 10)}T07:00`,
+    departureTime: "",   // blank — operator enters it; arrivals derive from it
+    arrivalTime: "",     // auto-calculated once departure + route are set
     baseFare: "",
   });
 
   const depTimeOnly = extractTime(form.departureTime); // "HH:MM"
+  const cum = useMemo(() => cumulativeKm(routeStops), [routeStops]);
 
   useEffect(() => {
     Promise.all([
@@ -121,59 +178,25 @@ function NewScheduleForm() {
     });
   }, []);
 
-  // Load stops when route changes
+  // Load stops when route changes (timings are derived from distance below).
   useEffect(() => {
     if (!form.routeId) { setRouteStops([]); setStopTimings({}); return; }
     const route = routes.find((r: any) => r.id === form.routeId);
     if (!route) return;
-    const stops = route.stops ?? [];
-    setRouteStops(stops);
-    const timings: Record<string, StopTiming> = {};
-    stops.forEach((s: any, idx: number) => {
-      if (idx === 0) {
-        timings[s.id] = { arrival: depTimeOnly, stoppage: "0" };
-      } else {
-        const arr = s.arrivalOffset ? addMins(depTimeOnly, s.arrivalOffset) : "";
-        const dep = s.departureOffset ? s.departureOffset - (s.arrivalOffset ?? 0) : 0;
-        timings[s.id] = { arrival: arr, stoppage: String(dep) };
-      }
-    });
-    setStopTimings(timings);
+    setRouteStops(route.stops ?? []);
   }, [form.routeId, routes]);
 
-  // Sync first stop arrival when departure time changes
+  // When the route or departure time changes, recompute the whole chain from the
+  // origin. Operator stoppage edits are preserved; arrivals are re-derived from
+  // distance. Per-stop edits cascade downstream via updateTiming (below).
   useEffect(() => {
     if (routeStops.length === 0) return;
-    const firstStop = routeStops[0];
-    setStopTimings((prev) => ({
-      ...prev,
-      [firstStop.id]: { arrival: depTimeOnly, stoppage: "0" },
-    }));
-  }, [depTimeOnly]);
-
-  // Auto-set arrival time: use last stop's arrivalOffset if available, else estimate from distance
-  useEffect(() => {
-    if (routeStops.length === 0 || !form.departureTime) return;
-    const lastStop = routeStops[routeStops.length - 1];
-    const route = routes.find((r: any) => r.id === form.routeId);
-
-    let estMins: number | null = null;
-    if (lastStop.arrivalOffset != null && lastStop.arrivalOffset > 0) {
-      estMins = lastStop.arrivalOffset;
-    } else if (route?.distanceKm) {
-      estMins = estimateMins(route.distanceKm);
-    }
-    if (estMins == null) return;
-
-    const arrTimeOnly = addMins(depTimeOnly, estMins);
-    const [dh, dm] = depTimeOnly.split(":").map(Number);
-    const [ah, am] = arrTimeOnly.split(":").map(Number);
-    const depDate = new Date(form.departureTime);
-    const arrDate = new Date(depDate);
-    if (ah * 60 + am < dh * 60 + dm) arrDate.setDate(arrDate.getDate() + 1);
-    const arrivalDateStr = arrDate.toISOString().slice(0, 10);
-    setForm((f) => ({ ...f, arrivalTime: `${arrivalDateStr}T${arrTimeOnly}` }));
-  }, [form.routeId, depTimeOnly, routes]);
+    const next = cascade(routeStops, cum, depTimeOnly, stopTimings, 1);
+    setStopTimings(next);
+    const lastId = routeStops[routeStops.length - 1].id;
+    setForm((f) => ({ ...f, arrivalTime: arrivalDateTime(f.departureTime, depTimeOnly, next[lastId]?.arrival ?? "") }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeStops, form.departureTime]);
 
   // Sync form arrivalTime → last stop's arrival in the table
   useEffect(() => {
@@ -196,8 +219,18 @@ function NewScheduleForm() {
     setArrivalWarning(warning);
   }, [form.arrivalTime, form.departureTime, form.routeId, routes]);
 
+  // Operator edits a stop's arrival or stoppage: keep that edit, then recompute
+  // every stop after it (next arrival = this stop's departure + travel time),
+  // and re-adjust the destination arrival in the form.
   function updateTiming(stopId: string, field: keyof StopTiming, value: string) {
-    setStopTimings((prev) => ({ ...prev, [stopId]: { ...prev[stopId], [field]: value } }));
+    const updated = { ...stopTimings, [stopId]: { ...stopTimings[stopId], [field]: value } };
+    const idx = routeStops.findIndex((s: any) => s.id === stopId);
+    const next = cascade(routeStops, cum, depTimeOnly, updated, idx + 1);
+    setStopTimings(next);
+    const lastId = routeStops[routeStops.length - 1]?.id;
+    if (lastId) {
+      setForm((f) => ({ ...f, arrivalTime: arrivalDateTime(f.departureTime, depTimeOnly, next[lastId]?.arrival ?? "") }));
+    }
   }
 
   function toggleDay(day: number) {
@@ -446,7 +479,7 @@ function NewScheduleForm() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-1 text-xs text-gray-400">Departure = Arrival + Stoppage. Distance calculated from route stop data.</p>
+            <p className="mt-1 text-xs text-gray-400">Arrivals derive from distance (50 km/h) + each stop&apos;s stoppage (default {STOP_DWELL_MINS} min). Edit an arrival or stoppage and the following stops recalculate. Departure = Arrival + Stoppage.</p>
           </div>
         )}
 
