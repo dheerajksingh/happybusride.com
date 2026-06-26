@@ -1539,3 +1539,17 @@ model OutboxEvent {
   @@index([status, createdAt])
   @@map("outbox_events")
 }
+
+/// One row per email actually sent for an outbox event. Lets the relay skip
+/// recipients already notified when an event is retried after a partial failure,
+/// so retries never re-send to recipients that already received their mail.
+model EmailDelivery {
+  id        String   @id @default(cuid())
+  eventId   String
+  recipient String
+  kind      String   // "agent" | "sender" | "recipient" | "passenger" | "operator"
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, recipient, kind])
+  @@map("email_deliveries")
+}

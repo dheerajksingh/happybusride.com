@@ -1,7 +1,28 @@
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, type EmailMessage } from "@/lib/email";
 
 const MAX_ATTEMPTS = 5;
+
+/**
+ * Send an email exactly once per (event, recipient, kind), even across retries.
+ * If a previous run already delivered this message, we skip it; the record is
+ * only written after a successful send, so a failed send is retried next pass.
+ */
+async function sendOnce(
+  eventId: string,
+  kind: string,
+  msg: EmailMessage,
+): Promise<void> {
+  const already = await prisma.emailDelivery.findUnique({
+    where: { eventId_recipient_kind: { eventId, recipient: msg.to, kind } },
+  });
+  if (already) return;
+
+  await sendEmail(msg);
+  await prisma.emailDelivery.create({
+    data: { eventId, recipient: msg.to, kind },
+  });
+}
 
 const TRANSFER_LABEL: Record<string, string> = {
   ORIGIN:  "Origin pickup",
@@ -14,7 +35,7 @@ const TRANSFER_LABEL: Record<string, string> = {
  * the booking (origin, transfers, destination) about the freight they must
  * handle. One email per agent, even if they own multiple legs.
  */
-async function handleBookingCreated(bookingId: string) {
+async function handleBookingCreated(bookingId: string, eventId: string) {
   const booking = await prisma.freightBooking.findUnique({
     where: { id: bookingId },
     include: {
@@ -87,7 +108,7 @@ ${legLines}
 
 Please log in to the agent portal to receive and manage this shipment.`;
 
-    await sendEmail({
+    await sendOnce(eventId, "agent", {
       to: info.email,
       subject: `New freight to handle — ${booking.bookingRef} (${booking.fromCity.name} → ${booking.toCity.name})`,
       text,
@@ -105,7 +126,7 @@ Please log in to the agent portal to receive and manage this shipment.`;
   // Confirmation to the sender (the account holder / walk-in customer).
   const senderEmail = booking.sender?.email ?? null;
   if (senderEmail) {
-    await sendEmail({
+    await sendOnce(eventId, "sender", {
       to: senderEmail,
       subject: `Freight booked — ${booking.bookingRef} (${route})`,
       text:
@@ -129,7 +150,7 @@ Track your shipment any time using booking reference ${booking.bookingRef}.`,
 
   // Notification to the recipient (no account required — collect with the ref/QR).
   if (booking.recipientEmail) {
-    await sendEmail({
+    await sendOnce(eventId, "recipient", {
       to: booking.recipientEmail,
       subject: `A shipment is on its way — ${booking.bookingRef} (${route})`,
       text:
@@ -151,10 +172,10 @@ Collect it from our agent at ${booking.toCity.name} using booking reference ${bo
 }
 
 /** Route an event to its handler. Unknown types are acked (marked published). */
-async function dispatch(ev: { type: string; aggregateId: string }) {
+async function dispatch(ev: { id: string; type: string; aggregateId: string }) {
   switch (ev.type) {
     case "freight.booking.created":
-      return handleBookingCreated(ev.aggregateId);
+      return handleBookingCreated(ev.aggregateId, ev.id);
     default:
       return; // no-op: ack unknown event types so they don't get stuck
   }
