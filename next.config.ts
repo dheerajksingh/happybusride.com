@@ -19,9 +19,11 @@ const nextConfig: NextConfig = {
     GOOGLE_MAPS_API_KEY:             process.env.GOOGLE_MAPS_API_KEY             || "",
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
 
-    // AWS S3
-    AWS_BUCKET_NAME: process.env.AWS_BUCKET_NAME || "",
-    AWS_REGION:      process.env.AWS_REGION      || "",
+    // AWS (S3 + SES) — region, bucket, and sender are non-secret config.
+    // Credentials intentionally NOT here — supplied via IAM role on the compute.
+    AWS_BUCKET_NAME: process.env.AWS_BUCKET_NAME || "happybusride-s3",
+    AWS_REGION:      process.env.AWS_REGION      || "us-east-2",
+    SES_FROM_EMAIL:  process.env.SES_FROM_EMAIL  || "notification@happybusride.com",
 
     // SMS / OTP
     MSG91_API_KEY:     process.env.MSG91_API_KEY     || "",
