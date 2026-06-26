@@ -35,7 +35,7 @@ export default function AgentFreightWalkInPage() {
   const [selected, setSelected] = useState<any>(null);
 
   // Step 3 — sender + recipient
-  const [sender, setSender] = useState({ name: "", phone: "", email: "", address: "" });
+  const [sender, setSender] = useState({ name: "", phone: "", email: "", whatsapp: "", address: "" });
   const [recipient, setRecipient] = useState({
     name: "", phone: "", whatsapp: "", email: "", address: "",
   });
@@ -282,9 +282,15 @@ export default function AgentFreightWalkInPage() {
                 <input className={inputCls} type="tel" value={sender.phone} onChange={e => setSender(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit mobile number" />
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Email</label>
-              <input className={inputCls} type="email" value={sender.email} onChange={e => setSender(p => ({ ...p, email: e.target.value }))} placeholder="optional" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Email</label>
+                <input className={inputCls} type="email" value={sender.email} onChange={e => setSender(p => ({ ...p, email: e.target.value }))} placeholder="optional" />
+              </div>
+              <div>
+                <label className={labelCls}>WhatsApp</label>
+                <input className={inputCls} type="tel" value={sender.whatsapp} onChange={e => setSender(p => ({ ...p, whatsapp: e.target.value }))} placeholder="If different from phone" />
+              </div>
             </div>
             <div>
               <label className={labelCls}>Sender Address *</label>

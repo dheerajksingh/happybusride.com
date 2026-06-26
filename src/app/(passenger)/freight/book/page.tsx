@@ -13,7 +13,7 @@ export default function FreightBookPage() {
   const [error, setError]     = useState("");
 
   const [form, setForm] = useState({
-    senderName: "", senderPhone: "",
+    senderName: "", senderPhone: "", senderEmail: "", senderWhatsapp: "",
     recipientName: "", recipientPhone: "", recipientWhatsapp: "",
     recipientEmail: "", recipientAddress: "",
     itemDescription: "", itemCount: 1,
@@ -82,6 +82,8 @@ export default function FreightBookPage() {
         totalCost:        option.totalCost,
         senderName:       form.senderName,
         senderPhone:      form.senderPhone,
+        senderEmail:      form.senderEmail    || undefined,
+        senderWhatsapp:   form.senderWhatsapp || undefined,
         recipientName:    form.recipientName,
         recipientPhone:   form.recipientPhone,
         recipientWhatsapp: form.recipientWhatsapp || undefined,
@@ -167,6 +169,16 @@ export default function FreightBookPage() {
             <div>
               <label className={labelCls}>Phone *</label>
               <input required className={inputCls} value={form.senderPhone} onChange={e => upd("senderPhone", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Email</label>
+              <input type="email" className={inputCls} value={form.senderEmail} onChange={e => upd("senderEmail", e.target.value)} placeholder="For booking confirmation" />
+            </div>
+            <div>
+              <label className={labelCls}>WhatsApp</label>
+              <input type="tel" className={inputCls} value={form.senderWhatsapp} onChange={e => upd("senderWhatsapp", e.target.value)} placeholder="If different from phone" />
             </div>
           </div>
         </div>

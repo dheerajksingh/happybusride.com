@@ -1196,6 +1196,8 @@ model FreightBooking {
   // no name on file (e.g. OTP passengers).
   senderName      String?
   senderPhone     String?
+  senderEmail     String?
+  senderWhatsapp  String?
   bookedByAgentId String?
   bookedByAgent   Agent? @relation("AgentFreightBooker", fields: [bookedByAgentId], references: [id])
 

@@ -43,6 +43,7 @@ async function handleBookingCreated(bookingId: string, eventId: string) {
       toCity:   { select: { name: true } },
       sender:   { select: { name: true, phone: true, email: true } },
       items:    true,
+
       legs: {
         orderBy: { legOrder: "asc" },
         include: {
@@ -89,6 +90,16 @@ async function handleBookingCreated(bookingId: string, eventId: string) {
       })
       .join("\n");
 
+    const sName    = booking.senderName     ?? booking.sender?.name  ?? "—";
+    const sPhone   = booking.senderPhone    ?? booking.sender?.phone ?? "—";
+    const sEmail   = booking.senderEmail    ?? booking.sender?.email ?? null;
+    const sWapp    = booking.senderWhatsapp ?? null;
+    const sContact = [
+      `Phone: ${sPhone}`,
+      sEmail  ? `Email: ${sEmail}`    : null,
+      sWapp   ? `WhatsApp: ${sWapp}`  : null,
+    ].filter(Boolean).join(" | ");
+
     const text =
 `Hello ${info.name},
 
@@ -97,8 +108,8 @@ A new freight booking has been assigned to you.
 Booking ref: ${booking.bookingRef}
 Route: ${booking.fromCity.name} → ${booking.toCity.name}
 Shipping date: ${shipDate}
-Sender: ${booking.senderName ?? booking.sender?.name ?? "—"} (${booking.senderPhone ?? booking.sender?.phone ?? "—"})
-Recipient: ${booking.recipientName} (${booking.recipientPhone})
+Sender: ${sName} (${sContact})
+Recipient: ${booking.recipientName} (Phone: ${booking.recipientPhone}${booking.recipientWhatsapp ? ` | WhatsApp: ${booking.recipientWhatsapp}` : ""}${booking.recipientEmail ? ` | Email: ${booking.recipientEmail}` : ""})
 
 Items:
 ${itemsText}
@@ -120,11 +131,11 @@ Please log in to the agent portal to receive and manage this shipment.`;
   }
 
   const route       = `${booking.fromCity.name} → ${booking.toCity.name}`;
-  const senderName  = booking.senderName ?? booking.sender?.name ?? "there";
+  const senderName  = booking.senderName  ?? booking.sender?.name  ?? "there";
   const senderPhone = booking.senderPhone ?? booking.sender?.phone ?? "—";
 
-  // Confirmation to the sender (the account holder / walk-in customer).
-  const senderEmail = booking.sender?.email ?? null;
+  // Prefer the email captured at booking time; fall back to account email.
+  const senderEmail = booking.senderEmail ?? booking.sender?.email ?? null;
   if (senderEmail) {
     await sendOnce(eventId, "sender", {
       to: senderEmail,

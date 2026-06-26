@@ -7,10 +7,11 @@ import { z } from "zod";
 
 const schema = z.object({
   sender: z.object({
-    name:    z.string().min(1),
-    phone:   z.string().min(10),
-    email:   z.string().email().optional().or(z.literal("")),
-    address: z.string().min(5),
+    name:      z.string().min(1),
+    phone:     z.string().min(10),
+    email:     z.string().email().optional().or(z.literal("")),
+    whatsapp:  z.string().optional(),
+    address:   z.string().min(5),
   }),
   fromCityId:       z.string().min(1),
   toCityId:         z.string().min(1),
@@ -96,6 +97,8 @@ export async function POST(req: NextRequest) {
         senderId:          walkinUser.id,
         senderName:        body.sender.name,
         senderPhone:       body.sender.phone,
+        senderEmail:       body.sender.email     || null,
+        senderWhatsapp:    body.sender.whatsapp  || null,
         bookedByAgentId:   agentId,
         fromCityId:        body.fromCityId,
         toCityId:          body.toCityId,
