@@ -3,7 +3,9 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 // SES, S3, and RDS all live in us-east-2 for this app. Prefer an explicit
 // SES_REGION, then AWS_REGION, then fall back to the region everything is in.
 const REGION = process.env.SES_REGION ?? process.env.AWS_REGION ?? "us-east-2";
-const FROM   = process.env.SES_FROM_EMAIL;
+// Fall back to the verified domain sender so email works even if the env var
+// isn't wired through in prod. Override with SES_FROM_EMAIL when needed.
+const FROM   = process.env.SES_FROM_EMAIL || "notification@happybusride.com";
 
 export type EmailMessage = {
   to:       string;
