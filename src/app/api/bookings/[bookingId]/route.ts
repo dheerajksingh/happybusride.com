@@ -30,7 +30,14 @@ export async function GET(
                     stops: { include: { city: true }, orderBy: { stopOrder: "asc" } },
                   },
                 },
-                bus: { select: { name: true, busType: true, amenities: true } },
+                bus: {
+                  select: {
+                    name: true,
+                    busType: true,
+                    amenities: true,
+                    operator: { select: { companyName: true } },
+                  },
+                },
               },
             },
             driver: { include: { user: { select: { name: true, phone: true } } } },

@@ -25,10 +25,11 @@ interface BookingData {
       departureTime: string;
       arrivalTime: string;
       route: {
+        name: string;
         fromCity: { name: string };
         toCity: { name: string };
       };
-      bus: { name: string; busType: string };
+      bus: { name: string; busType: string; operator?: { companyName: string } | null };
     };
   };
 }
@@ -37,8 +38,24 @@ export function QRTicket({ booking }: { booking: BookingData }) {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
+    const from = booking.boardingStop?.stopName
+      ?? booking.boardingStop?.city.name
+      ?? booking.trip.schedule.route.fromCity.name;
+    const to = booking.droppingStop?.stopName
+      ?? booking.droppingStop?.city.name
+      ?? booking.trip.schedule.route.toCity.name;
     generateQRDataURL(
-      buildTicketQRData({ id: booking.id, pnr: booking.pnr, qrToken: booking.qrToken })
+      buildTicketQRData({
+        pnr: booking.pnr,
+        qrToken: booking.qrToken,
+        travellerName: booking.passengers[0]?.name ?? "",
+        travelDate: booking.trip.travelDate.slice(0, 10),
+        from,
+        to,
+        seats: booking.seats.map((s) => s.seat.seatNumber).join(", "),
+        routeName: booking.trip.schedule.route.name,
+        operatorName: booking.trip.schedule.bus.operator?.companyName ?? "",
+      })
     ).then(setQrDataUrl);
   }, [booking]);
 

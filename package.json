@@ -30,6 +30,7 @@
     "@upstash/redis": "^1.37.0",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
+    "html5-qrcode": "^2.3.8",
     "jose": "^6.1.3",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
