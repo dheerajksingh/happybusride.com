@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SeatType } from "@prisma/client";
 import { addDays, startOfDay } from "date-fns";
+import { parseISTDateTime } from "@/lib/ist";
 
 const scheduleSchema = z.object({
   routeId: z.string().min(1),
@@ -72,8 +73,8 @@ export async function POST(req: Request) {
       data: {
         ...data,
         driverId,
-        departureTime: new Date(data.departureTime),
-        arrivalTime: new Date(data.arrivalTime),
+        departureTime: parseISTDateTime(data.departureTime),
+        arrivalTime: parseISTDateTime(data.arrivalTime),
         daysOfWeek: daysOfWeek ?? [],
         freightSpaces: freightSpaces ?? undefined,
         fareRules: fareRules ? { create: fareRules.map((r) => ({ ...r, seatType: r.seatType as SeatType })) } : undefined,

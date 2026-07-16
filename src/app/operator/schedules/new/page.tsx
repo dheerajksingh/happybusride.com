@@ -136,7 +136,12 @@ function arrivalDateTime(depDateTime: string, depTime: string, arrTime: string):
   const [ah, am] = arrTime.split(":").map(Number);
   const arrDate = new Date(depDateTime);
   if (ah * 60 + am < dh * 60 + dm) arrDate.setDate(arrDate.getDate() + 1);
-  return `${arrDate.toISOString().slice(0, 10)}T${arrTime}`;
+  // Format the date in local time — toISOString() shifts to UTC, which picks
+  // the previous day for times before 05:30 IST.
+  const y = arrDate.getFullYear();
+  const m = String(arrDate.getMonth() + 1).padStart(2, "0");
+  const d = String(arrDate.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}T${arrTime}`;
 }
 
 function NewScheduleForm() {

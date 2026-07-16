@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SeatType } from "@prisma/client";
 import { addDays, startOfDay } from "date-fns";
+import { parseISTDateTime } from "@/lib/ist";
 
 const stopOffsetSchema = z.object({
   stopId: z.string(),
@@ -87,8 +88,8 @@ export async function PUT(req: Request, { params }: Params) {
   const { regenerateTrips, daysOfWeek, stopOffsets, freightSpaces, ...data } = updateSchema.parse(body);
 
   const updateData: Record<string, unknown> = { ...data };
-  if (data.departureTime) updateData.departureTime = new Date(data.departureTime);
-  if (data.arrivalTime) updateData.arrivalTime = new Date(data.arrivalTime);
+  if (data.departureTime) updateData.departureTime = parseISTDateTime(data.departureTime);
+  if (data.arrivalTime) updateData.arrivalTime = parseISTDateTime(data.arrivalTime);
   if (daysOfWeek !== undefined) updateData.daysOfWeek = daysOfWeek;
   if (freightSpaces !== undefined) updateData.freightSpaces = freightSpaces;
 
