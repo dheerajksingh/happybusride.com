@@ -251,7 +251,7 @@ function NewScheduleForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.routeId || !form.busId || !form.baseFare) {
+    if (!form.routeId || !form.busId || !form.driverId || !form.baseFare) {
       alert("Fill all required fields");
       return;
     }
@@ -271,7 +271,6 @@ function NewScheduleForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        driverId: form.driverId || undefined,
         baseFare: Number(form.baseFare),
         daysOfWeek,
         freightSpaces: freightSpaces.length > 0 ? freightSpaces : undefined,
@@ -280,7 +279,10 @@ function NewScheduleForm() {
     });
     setLoading(false);
     if (res.ok) router.push("/operator/schedules");
-    else alert("Failed to create schedule");
+    else {
+      const err = await res.json().catch(() => null);
+      alert(err?.error ?? "Failed to create schedule");
+    }
   }
 
   return (
@@ -330,19 +332,23 @@ function NewScheduleForm() {
 
         {/* Driver */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Default Driver</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Default Driver *</label>
           <select
             className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
             value={form.driverId}
             onChange={(e) => setForm((f) => ({ ...f, driverId: e.target.value }))}
+            required
           >
-            <option value="">No driver assigned</option>
+            <option value="">Select driver</option>
             {drivers.map((d: any) => (
               <option key={d.id} value={d.id}>{d.user?.name} ({d.licenseNumber})</option>
             ))}
           </select>
           {drivers.length === 0 && (
-            <p className="mt-1 text-xs text-orange-600">All drivers are already assigned to active schedules.</p>
+            <p className="mt-1 text-xs text-orange-600">
+              No available drivers — they may all be assigned to active schedules.{" "}
+              <Link href="/operator/drivers/new" className="text-blue-600 hover:underline">Add a driver</Link>
+            </p>
           )}
         </div>
 

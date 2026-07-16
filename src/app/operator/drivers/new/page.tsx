@@ -21,16 +21,22 @@ export default function NewDriverPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/operator/drivers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setLoading(false);
-    if (res.ok) router.push("/operator/drivers");
-    else {
-      const err = await res.json();
-      alert(err.error ?? "Failed to add driver");
+    try {
+      const res = await fetch("/api/operator/drivers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        router.push("/operator/drivers");
+        return;
+      }
+      const err = await res.json().catch(() => null);
+      alert(err?.error ?? "Failed to add driver");
+    } catch {
+      alert("Failed to add driver. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -50,11 +56,12 @@ export default function NewDriverPage() {
           required
         />
         <Input
-          label="Email"
+          label="Email *"
           type="email"
           placeholder="driver@example.com"
           value={form.email}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          required
         />
         <Input
           label="Phone"

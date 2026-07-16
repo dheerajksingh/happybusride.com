@@ -8,7 +8,7 @@ import { addDays, startOfDay } from "date-fns";
 const scheduleSchema = z.object({
   routeId: z.string().min(1),
   busId: z.string().min(1),
-  driverId: z.string().optional(),
+  driverId: z.string({ error: "Driver is required" }).min(1, "Driver is required"),
   departureTime: z.string(),
   arrivalTime: z.string(),
   baseFare: z.number().positive(),
@@ -56,40 +56,56 @@ export async function POST(req: Request) {
   const operator = await prisma.operator.findUnique({ where: { userId: session.user.id } });
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
-  const body = await req.json();
-  const { fareRules, daysOfWeek, freightSpaces, driverId, stopOffsets, ...data } = scheduleSchema.parse(body);
+  try {
+    const body = await req.json();
+    const { fareRules, daysOfWeek, freightSpaces, driverId, stopOffsets, ...data } = scheduleSchema.parse(body);
 
-  const schedule = await prisma.schedule.create({
-    data: {
-      ...data,
-      driverId: driverId || null,
-      departureTime: new Date(data.departureTime),
-      arrivalTime: new Date(data.arrivalTime),
-      daysOfWeek: daysOfWeek ?? [],
-      freightSpaces: freightSpaces ?? undefined,
-      fareRules: fareRules ? { create: fareRules.map((r) => ({ ...r, seatType: r.seatType as SeatType })) } : undefined,
-    },
-  });
+    // Driver must exist and belong to this operator
+    const driver = await prisma.driver.findFirst({
+      where: { id: driverId, operatorId: operator.id },
+    });
+    if (!driver) {
+      return NextResponse.json({ error: "Select a valid driver" }, { status: 400 });
+    }
 
-  // Auto-generate trips starting from tomorrow for next 30 days
-  const dow = daysOfWeek ?? [];
-  const tripData = [];
-  for (let d = 1; d <= 30; d++) {
-    const travelDate = startOfDay(addDays(new Date(), d));
-    if (dow.length > 0 && !dow.includes(travelDate.getDay())) continue;
-    tripData.push({ scheduleId: schedule.id, travelDate, driverId: driverId || null, status: "SCHEDULED" as const });
+    const schedule = await prisma.schedule.create({
+      data: {
+        ...data,
+        driverId,
+        departureTime: new Date(data.departureTime),
+        arrivalTime: new Date(data.arrivalTime),
+        daysOfWeek: daysOfWeek ?? [],
+        freightSpaces: freightSpaces ?? undefined,
+        fareRules: fareRules ? { create: fareRules.map((r) => ({ ...r, seatType: r.seatType as SeatType })) } : undefined,
+      },
+    });
+
+    // Auto-generate trips starting from tomorrow for next 30 days
+    const dow = daysOfWeek ?? [];
+    const tripData = [];
+    for (let d = 1; d <= 30; d++) {
+      const travelDate = startOfDay(addDays(new Date(), d));
+      if (dow.length > 0 && !dow.includes(travelDate.getDay())) continue;
+      tripData.push({ scheduleId: schedule.id, travelDate, driverId, status: "SCHEDULED" as const });
+    }
+    await prisma.trip.createMany({ data: tripData, skipDuplicates: true });
+
+    // Save stop time offsets back to route_stops
+    if (stopOffsets && stopOffsets.length > 0) {
+      await Promise.all(stopOffsets.map((s) =>
+        prisma.routeStop.update({
+          where: { id: s.stopId },
+          data: { arrivalOffset: s.arrivalOffset, departureOffset: s.departureOffset },
+        })
+      ));
+    }
+
+    return NextResponse.json(schedule, { status: 201 });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: err.issues[0].message }, { status: 400 });
+    }
+    console.error("[operator/schedules POST]", err);
+    return NextResponse.json({ error: "Failed to create schedule" }, { status: 500 });
   }
-  await prisma.trip.createMany({ data: tripData, skipDuplicates: true });
-
-  // Save stop time offsets back to route_stops
-  if (stopOffsets && stopOffsets.length > 0) {
-    await Promise.all(stopOffsets.map((s) =>
-      prisma.routeStop.update({
-        where: { id: s.stopId },
-        data: { arrivalOffset: s.arrivalOffset, departureOffset: s.departureOffset },
-      })
-    ));
-  }
-
-  return NextResponse.json(schedule, { status: 201 });
 }
