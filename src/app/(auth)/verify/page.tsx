@@ -6,6 +6,12 @@ import { signIn } from "next-auth/react";
 import { OTPInput } from "@/components/ui/OTPInput";
 import { Button } from "@/components/ui/Button";
 import { PageSpinner } from "@/components/ui/Spinner";
+import {
+  isOtpWidgetEnabled,
+  widgetVerifyOtp,
+  widgetRetryOtp,
+  widgetSendOtp,
+} from "@/lib/msg91-widget";
 
 function VerifyContent() {
   const params = useSearchParams();
@@ -27,25 +33,36 @@ function VerifyContent() {
     setError("");
     setLoading(true);
 
-    // Verify OTP
-    const res = await fetch("/api/otp/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, code: otp }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error ?? "Invalid OTP");
+    // Verify OTP — via the MSG91 widget (client SDK) when configured,
+    // otherwise via our server-side verify endpoint (dev fallback).
+    try {
+      if (isOtpWidgetEnabled()) {
+        const accessToken = await widgetVerifyOtp(otp);
+        const res = await fetch("/api/otp/widget-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, accessToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "OTP verification failed");
+      } else {
+        const res = await fetch("/api/otp/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, code: otp }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Invalid OTP");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid OTP");
       setLoading(false);
       return;
     }
 
-    // Sign in via NextAuth OTP provider
+    // Sign in via NextAuth OTP provider (consumes the server-side proof)
     const signInResult = await signIn("otp", {
       phone,
-      userId: data.userId,
       redirect: false,
     });
 
@@ -62,14 +79,29 @@ function VerifyContent() {
 
   async function handleResend() {
     setResending(true);
-    await fetch("/api/otp/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    });
-    setResending(false);
-    setOtp("");
-    setError("");
+    try {
+      if (isOtpWidgetEnabled()) {
+        // Retry within the current widget transaction; if there is none
+        // (e.g. the page was refreshed), start a fresh send.
+        try {
+          await widgetRetryOtp();
+        } catch {
+          await widgetSendOtp(phone);
+        }
+      } else {
+        await fetch("/api/otp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+      }
+      setOtp("");
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend OTP");
+    } finally {
+      setResending(false);
+    }
   }
 
   return (

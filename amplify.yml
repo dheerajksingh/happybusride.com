@@ -28,6 +28,11 @@ frontend:
         - echo "MSG91_API_KEY=$MSG91_API_KEY" >> .env.production.local
         - echo "MSG91_TEMPLATE_ID=$MSG91_TEMPLATE_ID" >> .env.production.local
         - echo "MSG91_SENDER_ID=$MSG91_SENDER_ID" >> .env.production.local
+        # OTP widget (client SDK). NEXT_PUBLIC_* is inlined into the browser
+        # bundle at build time; console vars are named without the NEXT_ prefix
+        # because Amplify filters NEXT_-prefixed vars.
+        - echo "NEXT_PUBLIC_MSG91_WIDGET_ID=$MSG91_WIDGET_ID" >> .env.production.local
+        - echo "NEXT_PUBLIC_MSG91_TOKEN_AUTH=$MSG91_TOKEN_AUTH" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL" >> .env.production.local
         - echo "UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN" >> .env.production.local
         - echo "SEED_SECRET=$SEED_SECRET" >> .env.production.local

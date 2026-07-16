@@ -1,5 +1,6 @@
 import { hash, compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { sendWhatsAppOTP } from "@/lib/whatsapp";
 
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -22,31 +23,40 @@ async function dispatchSMS(phone: string, code: string): Promise<void> {
     return;
   }
 
-  const apiKey     = process.env.MSG91_API_KEY!;
-  const templateId = process.env.MSG91_TEMPLATE_ID!;
-  const senderId   = process.env.MSG91_SENDER_ID ?? "HPYBSR";
+  const apiKey     = process.env.MSG91_API_KEY;
+  const templateId = process.env.MSG91_TEMPLATE_ID;
+  if (!apiKey || !templateId) {
+    throw new Error("MSG91_API_KEY or MSG91_TEMPLATE_ID is not set");
+  }
 
-  const res = await fetch("https://control.msg91.com/api/v5/otp", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      authkey: apiKey,
-    },
-    body: JSON.stringify({
-      template_id: templateId,
-      mobile: `91${phone}`,   // India country code prefix
-      otp: code,
-      sender: senderId,
-    }),
+  const params = new URLSearchParams({
+    template_id: templateId,
+    mobile: `91${phone}`,   // India country code prefix
+    otp: code,
+    otp_expiry: String(OTP_EXPIRY_MINUTES),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
+  const res = await fetch(`https://control.msg91.com/api/v5/otp?${params}`, {
+    method: "POST",
+    headers: { authkey: apiKey },
+  });
+
+  // MSG91 responds 200 even on failures — success is signalled in the body.
+  const text = await res.text();
+  let parsed: { type?: string } | undefined;
+  try { parsed = JSON.parse(text); } catch { /* non-JSON body falls through to error below */ }
+
+  if (!res.ok || parsed?.type !== "success") {
     throw new Error(`MSG91 error ${res.status}: ${text}`);
   }
 }
 
-export async function sendOTP(phone: string): Promise<{ success: boolean; message: string }> {
+export type OTPChannel = "sms" | "whatsapp" | "both";
+
+export async function sendOTP(
+  phone: string,
+  channel: OTPChannel = "sms",
+): Promise<{ success: boolean; message: string }> {
   // Rate limit: max 10 OTPs per hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const recentCount = await prisma.otpRequest.count({
@@ -72,7 +82,12 @@ export async function sendOTP(phone: string): Promise<{ success: boolean; messag
     },
   });
 
-  await dispatchSMS(phone, code);
+  if (channel === "sms" || channel === "both") {
+    await dispatchSMS(phone, code);
+  }
+  if (channel === "whatsapp" || channel === "both") {
+    await sendWhatsAppOTP(phone, code);
+  }
 
   return { success: true, message: "OTP sent successfully" };
 }
@@ -108,6 +123,13 @@ export async function verifyOTP(
     data: { usedAt: new Date() },
   });
 
+  const { userId, isNew } = await upsertVerifiedUser(phone);
+  return { valid: true, userId, isNew };
+}
+
+export async function upsertVerifiedUser(
+  phone: string
+): Promise<{ userId: string; isNew: boolean }> {
   let isNew = false;
   let user = await prisma.user.findUnique({ where: { phone } });
 
@@ -123,5 +145,23 @@ export async function verifyOTP(
     });
   }
 
-  return { valid: true, userId: user.id, isNew };
+  return { userId: user.id, isNew };
+}
+
+/**
+ * Records an OTP verification that happened client-side (MSG91 widget) as an
+ * already-used OtpRequest row. The NextAuth "otp" provider consumes this row
+ * as one-time, server-side proof that the phone was verified.
+ */
+export async function recordWidgetVerification(phone: string, userId: string): Promise<void> {
+  await prisma.otpRequest.create({
+    data: {
+      phone,
+      // Placeholder hash — verification happened on MSG91's side, never compared.
+      code: await hash(Math.random().toString(36).slice(2), 10),
+      expiresAt: new Date(),
+      usedAt: new Date(),
+      userId,
+    },
+  });
 }

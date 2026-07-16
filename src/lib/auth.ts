@@ -47,15 +47,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "OTP",
       credentials: {
         phone: { label: "Phone", type: "text" },
-        userId: { label: "User ID", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.userId) return null;
+        const phone = credentials?.phone as string | undefined;
+        if (!phone) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { id: credentials.userId as string },
+        // One-time proof: an OTP for this phone verified within the last 5
+        // minutes (via /api/otp/verify or /api/otp/widget-verify).
+        const proof = await prisma.otpRequest.findFirst({
+          where: { phone, usedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } },
+          orderBy: { usedAt: "desc" },
         });
+        if (!proof) return null;
 
+        // Consume it so the same verification can't establish a second session.
+        const { count } = await prisma.otpRequest.deleteMany({ where: { id: proof.id } });
+        if (count !== 1) return null;
+
+        const user = await prisma.user.findUnique({ where: { phone } });
         if (!user || !user.isActive) return null;
 
         return {

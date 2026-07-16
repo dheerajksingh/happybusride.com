@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageSpinner } from "@/components/ui/Spinner";
+import { isOtpWidgetEnabled, loadOtpWidget, widgetSendOtp } from "@/lib/msg91-widget";
 
 function LoginContent() {
   const router = useRouter();
@@ -13,6 +14,11 @@ function LoginContent() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Preload the MSG91 widget script so "Send OTP" is instant.
+  useEffect(() => {
+    if (isOtpWidgetEnabled()) loadOtpWidget().catch(() => {});
+  }, []);
 
   async function handleSendOTP(e: React.FormEvent) {
     e.preventDefault();
@@ -23,19 +29,24 @@ function LoginContent() {
     setError("");
     setLoading(true);
 
-    const res = await fetch("/api/otp/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    });
-
-    const data = await res.json();
-    setLoading(false);
-
-    if (!res.ok) {
-      setError(data.error ?? "Failed to send OTP");
+    try {
+      if (isOtpWidgetEnabled()) {
+        await widgetSendOtp(phone);
+      } else {
+        const res = await fetch("/api/otp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to send OTP");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send OTP");
+      setLoading(false);
       return;
     }
+    setLoading(false);
 
     const cbParam = callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
     router.push(`/verify?phone=${encodeURIComponent(phone)}${cbParam}`);
