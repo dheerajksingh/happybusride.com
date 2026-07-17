@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Canonical host: auth cookies are host-only, so serving both www and apex
+  // gives each its own session (login on one, still logged out / stale user
+  // on the other). Redirect www → apex so only one cookie jar exists.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.happybusride.com" }],
+        destination: "https://happybusride.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   env: {
     // Auth
     DATABASE_URL:    process.env.DATABASE_URL    || "",
