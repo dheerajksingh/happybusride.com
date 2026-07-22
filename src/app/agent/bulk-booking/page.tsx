@@ -22,6 +22,7 @@ export default function AgentBulkBookingPage() {
   const [to, setTo] = useState<City | null>(null);
   const [date, setDate] = useState("");
   const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedResult, setSelectedResult] = useState<any>(null);
 
@@ -40,10 +41,11 @@ export default function AgentBulkBookingPage() {
   async function doSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!from || !to) { setError("Select both cities"); return; }
-    setSearching(true); setError("");
+    setSearching(true); setError(""); setSearched(false);
     const res = await fetch(`/api/search?from=${from.id}&to=${to.id}&date=${date}`);
     const d = await res.json();
     setSearchResults(d.results ?? []);
+    setSearched(true);
     setSearching(false);
   }
 
@@ -181,6 +183,13 @@ export default function AgentBulkBookingPage() {
               {searching ? "Searching…" : "Search"}
             </button>
           </form>
+
+          {searched && searchResults.length === 0 && (
+            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-5 text-center">
+              <p className="text-sm font-semibold text-amber-800">No bus available for this route on the selected date.</p>
+              <p className="mt-1 text-xs text-amber-600">Try a different date or check the route details.</p>
+            </div>
+          )}
 
           {searchResults.length > 0 && (
             <div className="mt-6 space-y-3">
