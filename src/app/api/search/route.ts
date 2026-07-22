@@ -18,8 +18,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const params = schema.parse(Object.fromEntries(searchParams));
 
-    const travelDate = new Date(params.date);
-    const travelDateEnd = new Date(params.date + "T23:59:59");
+    // Use UTC midnight so @db.Date comparisons are timezone-safe (same fix as freight search).
+    const travelDate = new Date(params.date + "T00:00:00.000Z");
 
     // Step 1: self-join on route_stops — single query to find routes where
     // fromCity stop appears before toCity stop on the same route
@@ -76,9 +76,7 @@ export async function GET(req: Request) {
           include: { fromStop: true, toStop: true },
         },
         trips: {
-          where: {
-            travelDate: { gte: travelDate, lte: travelDateEnd },
-          },
+          where: { travelDate },
           include: {
             seatLocks: {
               where: { expiresAt: { gte: new Date() } },
@@ -94,6 +92,41 @@ export async function GET(req: Request) {
           ? { departureTime: "asc" }
           : { baseFare: "asc" },
     });
+
+    // Lazy trip generation: schedules with no trip on the searched date get one now.
+    // This handles the case where the 30-day window from schedule creation has passed.
+    const schedulesNeedingTrip = schedules.filter((s) => s.trips.length === 0);
+    if (schedulesNeedingTrip.length > 0) {
+      const dow = travelDate.getUTCDay();
+      const toCreate = schedulesNeedingTrip.filter((s) => {
+        const days = s.daysOfWeek as number[] | null;
+        return !days || days.length === 0 || days.includes(dow);
+      });
+      if (toCreate.length > 0) {
+        await prisma.trip.createMany({
+          data: toCreate.map((s) => ({
+            scheduleId: s.id,
+            travelDate,
+            driverId: (s as any).driverId ?? null,
+            status: "SCHEDULED" as const,
+          })),
+          skipDuplicates: true,
+        });
+        const newTrips = await prisma.trip.findMany({
+          where: { scheduleId: { in: toCreate.map((s) => s.id) }, travelDate },
+          include: {
+            seatLocks: {
+              where: { expiresAt: { gte: new Date() } },
+              select: { seatId: true, boardingStopId: true, droppingStopId: true },
+            },
+          },
+        });
+        for (const trip of newTrips) {
+          const sched = schedules.find((s) => s.id === trip.scheduleId);
+          if (sched) sched.trips.push(trip as any);
+        }
+      }
+    }
 
     // Segment-aware occupancy: booked seats (with their segments) for the result trips.
     const tripIds = schedules.map((s) => s.trips[0]?.id).filter(Boolean) as string[];

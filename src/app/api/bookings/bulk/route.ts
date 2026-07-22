@@ -29,11 +29,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Seat count must match passenger count" }, { status: 400 });
     }
 
-    const trip = await prisma.trip.findUnique({
-      where: { id: data.tripId },
-      include: { schedule: { include: { bus: true, route: true } } },
-    });
+    const [trip, agentConfig] = await Promise.all([
+      prisma.trip.findUnique({
+        where: { id: data.tripId },
+        include: { schedule: { include: { bus: true, route: true } } },
+      }),
+      data.isBulkAgent
+        ? prisma.agentChargeConfig.findFirst({ where: { isActive: true } })
+        : null,
+    ]);
     if (!trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+
+    const agent = data.isBulkAgent
+      ? await prisma.agent.findUnique({ where: { userId: session.user.id } })
+      : null;
 
     const result = await prisma.$transaction(async (tx) => {
       // Check seat availability
@@ -60,7 +69,8 @@ export async function POST(req: NextRequest) {
         data: {
           userId: session.user.id,
           tripId: data.tripId,
-          status: "PENDING",
+          // Agent walk-in bookings are paid in cash on the spot — confirm immediately.
+          status: data.isBulkAgent ? "CONFIRMED" : "PENDING",
           baseFare: fare.baseFare,
           gstAmount: fare.gstAmount,
           convenienceFee: fare.convenienceFee,
@@ -80,6 +90,17 @@ export async function POST(req: NextRequest) {
           },
         },
       });
+
+      if (data.isBulkAgent && agent) {
+        const commPct = Number(agentConfig?.agentSeatBookingComm ?? 0) / 100;
+        await tx.agentPassengerBooking.create({
+          data: {
+            agentId: agent.id,
+            bookingId: booking.id,
+            commission: Number(fare.totalAmount) * commPct,
+          },
+        });
+      }
 
       return { group, booking };
     });

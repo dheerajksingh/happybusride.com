@@ -116,7 +116,7 @@ export async function PUT(req: Request, { params }: Params) {
     // Recreate trips filtered by new daysOfWeek
     const effectiveDow = daysOfWeek ?? schedule.daysOfWeek ?? [];
     const tripData = [];
-    for (let d = 0; d <= 30; d++) {
+    for (let d = 0; d <= 90; d++) {
       const travelDate = startOfDay(addDays(new Date(), d));
       if (effectiveDow.length > 0 && !effectiveDow.includes(travelDate.getDay())) continue;
       tripData.push({ scheduleId, travelDate, status: "SCHEDULED" as const });

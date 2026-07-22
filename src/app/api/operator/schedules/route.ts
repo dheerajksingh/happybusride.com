@@ -81,10 +81,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // Auto-generate trips starting from tomorrow for next 30 days
+    // Auto-generate trips starting from tomorrow for next 90 days
     const dow = daysOfWeek ?? [];
     const tripData = [];
-    for (let d = 1; d <= 30; d++) {
+    for (let d = 1; d <= 90; d++) {
       const travelDate = startOfDay(addDays(new Date(), d));
       if (dow.length > 0 && !dow.includes(travelDate.getDay())) continue;
       tripData.push({ scheduleId: schedule.id, travelDate, driverId, status: "SCHEDULED" as const });
