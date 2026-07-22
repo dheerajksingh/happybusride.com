@@ -41,7 +41,11 @@ export async function POST(req: NextRequest) {
     if (!trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
 
     const agent = data.isBulkAgent
-      ? await prisma.agent.findUnique({ where: { userId: session.user.id } })
+      ? await prisma.agent.findUnique({
+          where: session.user.agentId
+            ? { id: session.user.agentId }
+            : { userId: session.user.id },
+        })
       : null;
 
     const result = await prisma.$transaction(async (tx) => {

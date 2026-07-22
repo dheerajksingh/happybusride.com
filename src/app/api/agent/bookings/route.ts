@@ -7,8 +7,16 @@ export async function GET() {
   const session = await auth();
   if (!session || session.user.role !== "AGENT") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // agentId may be absent from a stale JWT; fall back to looking up by userId.
+  let agentId = session.user.agentId;
+  if (!agentId) {
+    const agent = await prisma.agent.findUnique({ where: { userId: session.user.id } });
+    agentId = agent?.id ?? null;
+  }
+  if (!agentId) return NextResponse.json({ bookings: [] });
+
   const agentBookings = await prisma.agentPassengerBooking.findMany({
-    where: { agentId: session.user.agentId! },
+    where: { agentId },
     include: {
       booking: {
         include: {
