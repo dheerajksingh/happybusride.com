@@ -105,12 +105,40 @@ export async function POST(req: NextRequest) {
       return { group, booking };
     });
 
+    // Fetch full ticket data for the confirmation screen
+    const fullBooking = await prisma.booking.findUnique({
+      where: { id: result.booking.id },
+      include: {
+        passengers: true,
+        seats: { include: { seat: { select: { seatNumber: true } } } },
+        trip: {
+          include: {
+            schedule: {
+              include: {
+                route: {
+                  include: {
+                    fromCity: { select: { name: true } },
+                    toCity: { select: { name: true } },
+                  },
+                },
+                bus: {
+                  select: { name: true, busType: true, registrationNo: true, operator: { select: { companyName: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
       groupId: result.group.id,
       bookingId: result.booking.id,
       pnr: result.booking.pnr,
+      qrToken: fullBooking?.qrToken,
       totalAmount: result.booking.totalAmount,
+      ticket: fullBooking,
     }, { status: 201 });
   } catch (err: any) {
     if (err instanceof z.ZodError) {

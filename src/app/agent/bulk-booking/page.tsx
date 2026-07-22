@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BulkPassengerForm, BulkPassenger } from "@/components/passenger/BulkPassengerForm";
 import { SeatMap } from "@/components/passenger/SeatMap";
+import { BulkTicket } from "@/components/passenger/BulkTicket";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { CityAutocomplete } from "@/components/ui/CityAutocomplete";
@@ -101,13 +102,28 @@ export default function AgentBulkBookingPage() {
 
   if (bookingResult) {
     return (
-      <div className="max-w-lg mx-auto rounded-xl border border-green-200 bg-green-50 p-8 text-center">
-        <div className="text-4xl mb-3">✅</div>
-        <h2 className="text-xl font-bold text-green-800 mb-1">Bulk Booking Confirmed!</h2>
-        <p className="text-sm text-green-700 mb-3">PNR: <span className="font-mono font-bold">{bookingResult.pnr}</span></p>
-        <p className="text-sm text-green-700">Total: ₹{Number(bookingResult.totalAmount).toLocaleString("en-IN")}</p>
-        <button onClick={() => { setStep(0); setBookingResult(null); setSelectedSeats([]); setPassengers([]); }}
-          className="mt-5 rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-700">
+      <div className="space-y-4">
+        <div className="text-center">
+          <div className="text-4xl mb-2">✅</div>
+          <h1 className="text-2xl font-bold text-gray-900">Booking Confirmed!</h1>
+        </div>
+        {bookingResult.ticket ? (
+          <BulkTicket
+            pnr={bookingResult.pnr}
+            qrToken={bookingResult.qrToken}
+            totalAmount={bookingResult.totalAmount}
+            ticket={bookingResult.ticket}
+          />
+        ) : (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+            <p className="font-mono font-bold text-green-800">{bookingResult.pnr}</p>
+            <p className="mt-1 text-sm text-green-700">₹{Number(bookingResult.totalAmount).toLocaleString("en-IN")}</p>
+          </div>
+        )}
+        <button
+          onClick={() => { setStep(0); setBookingResult(null); setSelectedSeats([]); setPassengers([]); }}
+          className="w-full rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+        >
           Book Another
         </button>
       </div>
